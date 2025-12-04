@@ -1,0 +1,1 @@
+C:\Users\17814\Documents\c++\cocos\test\proj.win32\Debug.win32\test.exe

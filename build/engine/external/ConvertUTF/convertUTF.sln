@@ -1,0 +1,50 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "CMakePredefinedTargets", "CMakePredefinedTargets", "{B87EFF0A-2A96-3ED8-947F-25FA54603014}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "External", "External", "{38ABCB3E-6FC7-3A5E-819A-90C1E95681CB}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ALL_BUILD", "ALL_BUILD.vcxproj", "{88E4EC20-0E0B-31FA-8CDC-4C86821C6547}"
+	ProjectSection(ProjectDependencies) = postProject
+		{D94ED5EF-EAFE-32B6-8276-FE6B39263B61} = {D94ED5EF-EAFE-32B6-8276-FE6B39263B61}
+		{CE285F1A-4392-3726-96A2-AD03212A908C} = {CE285F1A-4392-3726-96A2-AD03212A908C}
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ZERO_CHECK", "..\..\..\\ZERO_CHECK.vcxproj", "{D94ED5EF-EAFE-32B6-8276-FE6B39263B61}"
+	ProjectSection(ProjectDependencies) = postProject
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ext_convertUTF", "ext_convertUTF.vcxproj", "{CE285F1A-4392-3726-96A2-AD03212A908C}"
+	ProjectSection(ProjectDependencies) = postProject
+		{D94ED5EF-EAFE-32B6-8276-FE6B39263B61} = {D94ED5EF-EAFE-32B6-8276-FE6B39263B61}
+	EndProjectSection
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|win32 = Debug|win32
+		Release|win32 = Release|win32
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{88E4EC20-0E0B-31FA-8CDC-4C86821C6547}.Debug|win32.ActiveCfg = Debug|win32
+		{88E4EC20-0E0B-31FA-8CDC-4C86821C6547}.Release|win32.ActiveCfg = Release|win32
+		{D94ED5EF-EAFE-32B6-8276-FE6B39263B61}.Debug|win32.ActiveCfg = Debug|win32
+		{D94ED5EF-EAFE-32B6-8276-FE6B39263B61}.Debug|win32.Build.0 = Debug|win32
+		{D94ED5EF-EAFE-32B6-8276-FE6B39263B61}.Release|win32.ActiveCfg = Release|win32
+		{D94ED5EF-EAFE-32B6-8276-FE6B39263B61}.Release|win32.Build.0 = Release|win32
+		{CE285F1A-4392-3726-96A2-AD03212A908C}.Debug|win32.ActiveCfg = Debug|win32
+		{CE285F1A-4392-3726-96A2-AD03212A908C}.Debug|win32.Build.0 = Debug|win32
+		{CE285F1A-4392-3726-96A2-AD03212A908C}.Release|win32.ActiveCfg = Release|win32
+		{CE285F1A-4392-3726-96A2-AD03212A908C}.Release|win32.Build.0 = Release|win32
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{88E4EC20-0E0B-31FA-8CDC-4C86821C6547} = {B87EFF0A-2A96-3ED8-947F-25FA54603014}
+		{D94ED5EF-EAFE-32B6-8276-FE6B39263B61} = {B87EFF0A-2A96-3ED8-947F-25FA54603014}
+		{CE285F1A-4392-3726-96A2-AD03212A908C} = {38ABCB3E-6FC7-3A5E-819A-90C1E95681CB}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {2BDDDDD9-EB9A-3F98-AF40-2648F18580F6}
+	EndGlobalSection
+	GlobalSection(ExtensibilityAddIns) = postSolution
+	EndGlobalSection
+EndGlobal
