@@ -3,6 +3,9 @@
 #define LevelConfigLoader_h
 
 #include "../LevelConfig.h"
+#include "cocos2d.h"
+#include<string>
+
 
 // @brief 负责加载和解析关卡配置文件
 class LevelConfigLoader
