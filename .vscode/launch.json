@@ -1,0 +1,17 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Launch test (Windows)",
+      "type": "cppvsdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/proj.win32/Debug.win32/test.exe",
+      "args": [],
+      "stopAtEntry": false,
+      "cwd": "${workspaceFolder}/proj.win32",
+      "environment": [],
+      "preLaunchTask": "cocos: build (win32 debug)",
+      "console": "externalTerminal"
+    }
+  ]
+}
