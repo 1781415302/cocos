@@ -82,6 +82,10 @@ private:
     // 触摸回调
     bool onTouchBegan(cocos2d::Touch* touch, cocos2d::Event* event);
     void onTouchEnded(cocos2d::Touch* touch, cocos2d::Event* event);
+    void onTouchCancelled(cocos2d::Touch* touch, cocos2d::Event* event);
+
+    // 节点退出回调（用于移除监听器）
+    virtual void onExit() override;
 };
 
 #endif /* CardView_h */

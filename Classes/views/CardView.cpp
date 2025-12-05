@@ -1,9 +1,9 @@
 // Classes/views/CardView.cpp
 #include "CardView.h"
-#include "models/CardModel.h" // Include the model header
+#include "models/CardModel.h" // 包含模型头文件
 #include "utils/CardEnums.h"
-#include <string> // For constructing file paths
-#include <sstream> // For integer to string conversion
+#include <string> // 用于构造文件路径
+#include <sstream> // 用于整数到字符串的转换
 #include <memory>
 
 using namespace cocos2d;
@@ -13,7 +13,7 @@ CardView* CardView::create(const std::shared_ptr<CardModel>& cardModel)
     CardView* pRet = new (std::nothrow) CardView();
     if (pRet && pRet->init(cardModel))
     {
-        pRet->autorelease(); // Let Cocos2d-x manage memory
+        pRet->autorelease(); // 交给 Cocos2d-x 管理内存
         return pRet;
     }
     else
@@ -38,7 +38,7 @@ bool CardView::init(const std::shared_ptr<CardModel>& cardModel)
 
     _cardModel = cardModel;
 
-    // Load front and back sprites
+    // 加载正面和背面的精灵
     auto modelLock = _cardModel.lock();
     if (!modelLock) return false;
 
@@ -47,25 +47,36 @@ bool CardView::init(const std::shared_ptr<CardModel>& cardModel)
 
     _frontSprite = loadCardSprite(face, suit);
     if (!_frontSprite) {
-        // Use a placeholder sprite to avoid null contentSize
-        _frontSprite = Sprite::create(); // empty sprite
+        // 使用占位精灵以避免 contentSize 为空
+        _frontSprite = Sprite::create(); // 空精灵
         if (!_frontSprite) {
             CCLOG("CardView::init - failed to create placeholder front sprite");
             return false;
         }
     }
 
-    _backSprite = Sprite::create("res/card_back.png"); // Assume a generic back image
+    _backSprite = Sprite::create("res/card_back.png"); // 假设通用的背面图片
     if (!_backSprite) {
-        // fallback to empty sprite
+        // 回退到空精灵
         _backSprite = Sprite::create();
         CCLOG("CardView::init - failed to load card_back.png, using placeholder");
     }
 
-    // Ensure content size matches card sprite for proper touch rect
-    setContentSize(_frontSprite->getContentSize());
+    // 确保 contentSize 与卡牌精灵匹配，以便触摸区域正确
+    Size frontSize = _frontSprite->getContentSize();
+    Size backSize = _backSprite->getContentSize();
+    if (frontSize.width > 0 && frontSize.height > 0) {
+        setContentSize(frontSize);
+    }
+    else if (backSize.width > 0 && backSize.height > 0) {
+        setContentSize(backSize);
+    }
+    else {
+        // 如果两个精灵都为空，则回退到合理的默认大小
+        setContentSize(Size(150.0f, 200.0f));
+    }
 
-    // Initially show the back of the card if it's covered
+    // 如果卡牌为覆盖状态，初始显示背面
     if (modelLock->getStatus() == CardStatus::COVERED) {
         _backSprite->setVisible(true);
         _frontSprite->setVisible(false);
@@ -75,20 +86,25 @@ bool CardView::init(const std::shared_ptr<CardModel>& cardModel)
         _frontSprite->setVisible(true);
     }
 
-    // Add sprites as children (back under front)
+    // 将精灵在节点内居中
+    _backSprite->setPosition(getContentSize() * 0.5f);
+    _frontSprite->setPosition(getContentSize() * 0.5f);
+
+    // 将精灵添加为子节点（背面在下，正面在上）
     addChild(_backSprite);
     addChild(_frontSprite);
 
-    // Set initial position based on the model
+    // 根据模型设置初始位置
     setPosition(modelLock->getPosition());
 
-    // Enable touch
+    // 启用触摸
     auto listener = EventListenerTouchOneByOne::create();
-    listener->setSwallowTouches(true); // Prevents touch from passing through
+    listener->setSwallowTouches(true); // 阻止触摸事件向下传递
     listener->onTouchBegan = CC_CALLBACK_2(CardView::onTouchBegan, this);
     listener->onTouchEnded = CC_CALLBACK_2(CardView::onTouchEnded, this);
+    listener->onTouchCancelled = CC_CALLBACK_2(CardView::onTouchCancelled, this);
 
-    _eventDispatcher->addEventListenerWithSceneGraphPriority(listener, this);
+    getEventDispatcher()->addEventListenerWithSceneGraphPriority(listener, this);
 
     return true;
 }
@@ -144,7 +160,7 @@ void CardView::playMoveAnimation(cocos2d::Vec2 targetPos, float duration, std::f
 
 void CardView::playReverseMoveAnimation(cocos2d::Vec2 targetPos, float duration, std::function<void()> completionCallback)
 {
-    // For now just reuse playMoveAnimation
+    // 目前复用 playMoveAnimation
     playMoveAnimation(targetPos, duration, completionCallback);
 }
 
@@ -175,13 +191,13 @@ bool CardView::onTouchBegan(Touch* touch, Event* event)
 {
     auto target = event->getCurrentTarget();
     auto locationInNode = target->convertToNodeSpace(touch->getLocation());
-    // 使用节点 contentSize 来判断
+    // 使用节点的 contentSize 来判断是否被点击
     auto s = getContentSize();
     auto rect = Rect(0, 0, s.width, s.height);
 
     if (rect.containsPoint(locationInNode)) {
-        // Highlight or indicate selection if needed
-        // For now, just return true to indicate we've handled the touch start
+        // 可以在此处高亮或表示选中
+        // 目前只返回 true，表示处理了触摸按下
         return true;
     }
     return false;
@@ -189,14 +205,34 @@ bool CardView::onTouchBegan(Touch* touch, Event* event)
 
 void CardView::onTouchEnded(Touch* touch, Event* event)
 {
-    // Touch started and ended within this node, consider it a click
-    if (_clickCallback) {
-        auto modelLock = _cardModel.lock();
-        if (modelLock) {
-            _clickCallback(modelLock->getId()); // Pass the card's ID
-        }
-        else {
-            // model expired — do nothing
+    // 检查触摸是否在该节点内结束
+    auto target = event->getCurrentTarget();
+    auto locationInNode = target->convertToNodeSpace(touch->getLocation());
+    auto s = getContentSize();
+    auto rect = Rect(0, 0, s.width, s.height);
+    if (rect.containsPoint(locationInNode)) {
+        // 触摸在该节点内按下并释放，视为点击
+        if (_clickCallback) {
+            auto modelLock = _cardModel.lock();
+            if (modelLock) {
+                _clickCallback(modelLock->getId()); // 传递卡牌 ID
+            }
+            else {
+                // 模型已过期 -> 不处理
+                CCLOG("CardView::onTouchEnded - model expired, ignoring click");
+            }
         }
     }
+}
+
+void CardView::onTouchCancelled(Touch* touch, Event* event)
+{
+    // 目前取消不做特殊处理，未来可用于移除高亮等
+}
+
+void CardView::onExit()
+{
+    // 移除为该目标注册的监听器，避免悬挂回调
+    getEventDispatcher()->removeEventListenersForTarget(this);
+    Node::onExit();
 }
