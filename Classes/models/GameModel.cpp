@@ -1,77 +1,102 @@
-// test/Classes/models/GameModel.cpp
 #include "GameModel.h"
 #include "CardModel.h"
-#include <algorithm> // for std::find_if
+#include <algorithm>
+
+using namespace cocos2d;
 
 GameModel::GameModel()
 {
-    // 构造函数可以留空
+    // 默认初始化
 }
 
-std::vector<std::shared_ptr<CardModel>>& GameModel::getPlayfieldCards()
-{
-    return _playfieldCards;
-}
+std::vector<std::shared_ptr<CardModel>>& GameModel::getPlayfieldCards() { return _playfieldCards; }
+const std::vector<std::shared_ptr<CardModel>>& GameModel::getPlayfieldCards() const { return _playfieldCards; }
 
-const std::vector<std::shared_ptr<CardModel>>& GameModel::getPlayfieldCards() const
-{
-    return _playfieldCards;
-}
+std::vector<std::shared_ptr<CardModel>>& GameModel::getReserveCards() { return _reserveCards; }
+const std::vector<std::shared_ptr<CardModel>>& GameModel::getReserveCards() const { return _reserveCards; }
 
-std::vector<std::shared_ptr<CardModel>>& GameModel::getStackCards()
-{
-    return _stackCards;
-}
+std::vector<std::shared_ptr<CardModel>>& GameModel::getHandCards() { return _handCards; }
+const std::vector<std::shared_ptr<CardModel>>& GameModel::getHandCards() const { return _handCards; }
 
-const std::vector<std::shared_ptr<CardModel>>& GameModel::getStackCards() const
-{
-    return _stackCards;
-}
+std::vector<std::shared_ptr<CardModel>>& GameModel::getStackCards() { return getHandCards(); }
+const std::vector<std::shared_ptr<CardModel>>& GameModel::getStackCards() const { return getHandCards(); }
 
 void GameModel::addPlayfieldCard(const std::shared_ptr<CardModel>& card)
 {
-    // 如果 card 没有 id，则分配
     if (card->getId() == -1) {
         card->setId(allocateCardId());
     }
     _playfieldCards.push_back(card);
 }
 
-void GameModel::addStackCard(const std::shared_ptr<CardModel>& card)
+void GameModel::addReserveCard(const std::shared_ptr<CardModel>& card)
 {
     if (card->getId() == -1) {
         card->setId(allocateCardId());
     }
-    _stackCards.push_back(card);
+    _reserveCards.push_back(card);
 }
 
-bool GameModel::movePlayfieldCardToStack(int playfieldIndex)
+void GameModel::addHandCard(const std::shared_ptr<CardModel>& card)
+{
+    if (card->getId() == -1) {
+        card->setId(allocateCardId());
+    }
+    _handCards.push_back(card);
+}
+
+bool GameModel::drawReserveToHand()
+{
+    if (_reserveCards.empty()) return false;
+
+    auto cardPtr = _reserveCards.back();
+    _reserveCards.pop_back();
+
+    // 将其放入 hand（尾部），并翻开
+    cardPtr->setFaceUp(true);
+    _handCards.push_back(cardPtr);
+    return true;
+}
+
+bool GameModel::movePlayfieldCardToHand(int playfieldIndex)
 {
     if (playfieldIndex < 0 || playfieldIndex >= static_cast<int>(_playfieldCards.size())) {
-        return false; // 索引无效
+        return false;
     }
 
     auto cardPtr = _playfieldCards[playfieldIndex];
     if (!cardPtr->isFaceUp() || !cardPtr->isVisible()) {
-        return false; // 不能移动的卡
-    }
-
-    // 移动到 stack 的尾部 (作为顶牌)
-    _stackCards.push_back(cardPtr);
-    // 从 playfield 中移除
-    _playfieldCards.erase(_playfieldCards.begin() + playfieldIndex);
-
-    return true;
-}
-
-bool GameModel::flipTopStackCard()
-{
-    if (_stackCards.empty()) {
         return false;
     }
 
-    auto& topCard = _stackCards.back();
-    topCard->setFaceUp(true);
+    _handCards.push_back(cardPtr);
+    _playfieldCards.erase(_playfieldCards.begin() + playfieldIndex);
+    return true;
+}
+
+bool GameModel::moveTopHandCardToPlayfieldAt(int playfieldIndex, Vec2 position, CardStatus status)
+{
+    if (_handCards.empty()) return false;
+
+    auto cardPtr = _handCards.back();
+    _handCards.pop_back();
+
+    cardPtr->setPosition(position);
+    cardPtr->setStatus(status);
+
+    if (playfieldIndex < 0 || playfieldIndex > static_cast<int>(_playfieldCards.size())) {
+        _playfieldCards.push_back(cardPtr);
+    }
+    else {
+        _playfieldCards.insert(_playfieldCards.begin() + playfieldIndex, cardPtr);
+    }
+    return true;
+}
+
+bool GameModel::flipTopHandCard()
+{
+    if (_handCards.empty()) return false;
+    _handCards.back()->setFaceUp(true);
     return true;
 }
 
@@ -82,15 +107,37 @@ bool GameModel::hasMovablePlayfieldCard() const
         });
 }
 
-bool GameModel::canMatchWithTopStackCard() const
+bool GameModel::canMatchWithHandTop() const
 {
-    if (_stackCards.empty()) {
-        return false;
-    }
-    return _stackCards.back()->isFaceUp();
+    if (_handCards.empty()) return false;
+    return _handCards.back()->isFaceUp();
 }
 
 int GameModel::allocateCardId()
 {
     return _nextCardId++;
+}
+
+int GameModel::findPlayfieldIndexById(int cardId) const
+{
+    for (size_t i = 0; i < _playfieldCards.size(); ++i) {
+        if (_playfieldCards[i] && _playfieldCards[i]->getId() == cardId) return static_cast<int>(i);
+    }
+    return -1;
+}
+
+int GameModel::findReserveIndexById(int cardId) const
+{
+    for (size_t i = 0; i < _reserveCards.size(); ++i) {
+        if (_reserveCards[i] && _reserveCards[i]->getId() == cardId) return static_cast<int>(i);
+    }
+    return -1;
+}
+
+int GameModel::findHandIndexById(int cardId) const
+{
+    for (size_t i = 0; i < _handCards.size(); ++i) {
+        if (_handCards[i] && _handCards[i]->getId() == cardId) return static_cast<int>(i);
+    }
+    return -1;
 }

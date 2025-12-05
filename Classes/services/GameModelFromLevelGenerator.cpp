@@ -1,36 +1,39 @@
-// test/Classes/services/GameModelFromLevelGenerator.cpp
 #include "GameModelFromLevelGenerator.h"
 #include "models/CardModel.h"
 #include <memory>
 
-GameModel GameModelFromLevelGenerator::generateGameModel(const LevelConfig& config)
+/*
+ * 说明：
+ * - 该生成器将 LevelConfig 中的 Playfield 映射到 GameModel::playfield（addPlayfieldCard）
+ * - 将 LevelConfig 中的 Stack 映射为 reserve（备用牌堆），使用 addReserveCard。
+ * - hand（底牌堆）在默认情况下为空；如果你希望关卡配置包含初始 hand，请扩展 LevelConfig 格式并这里按需填充。
+ */
+
+GameModel GameModelFromLevelGenerator::generateGameModel(const LevelConfig & config)
 {
     GameModel gameModel;
 
-    // Playfield 卡牌生成
+    // Playfield
     const auto& playfieldConfig = config.getPlayfieldConfig();
     for (const auto& cardConfig : playfieldConfig.cards) {
-        // 兼容现有 CardModel 的便捷构造： (suit, face, position, isFaceUp)
-        bool isFaceUp = false;
-        // 如果配置需要默认翻开可以在 CardConfig 中添加字段，这里假设 playfield 中默认翻开
-        // 如果需要覆面，可根据配置调整
-        isFaceUp = true; // 主牌区通常是展示的牌（如果不是，请调整）
+        bool isFaceUp = true; // playfield 中按你的规则可能都是翻开
         auto card = std::make_shared<CardModel>(cardConfig.suit, cardConfig.face, cardConfig.position, isFaceUp);
         gameModel.addPlayfieldCard(card);
     }
 
-    // Stack（备用牌堆）生成
+    // Stack -> reserve
     const auto& stackConfig = config.getStackConfig();
-    // 采用索引遍历，明确判断最后一个元素作为初始顶部（翻开）
     for (size_t i = 0; i < stackConfig.cards.size(); ++i) {
         const auto& cardConfig = stackConfig.cards[i];
         bool isFaceUp = false;
+        // 若你希望 reserve 顶牌显示为翻开，可将最后一张设为翻开（按原实现）
         if (!stackConfig.cards.empty() && i == stackConfig.cards.size() - 1) {
-            isFaceUp = true; // 将最后一张作为初始翻开的顶牌
+            isFaceUp = true;
         }
         auto card = std::make_shared<CardModel>(cardConfig.suit, cardConfig.face, cardConfig.position, isFaceUp);
-        gameModel.addStackCard(card);
+        gameModel.addReserveCard(card);
     }
 
+    // hand 初始为空（也可由关卡配置决定）
     return gameModel;
 }

@@ -20,4 +20,4 @@ private:
     static CardConfig parseCard(const cocos2d::ValueMap& cardMap);
 };
 
-#endif // LevelConfigLoader_h#pragma once
+#endif 
