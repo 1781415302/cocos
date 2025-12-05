@@ -5,27 +5,44 @@
 
 GameModel::GameModel()
 {
-    // 构造函数体
+    // 构造函数可以留空
 }
 
-std::vector<CardModel>& GameModel::getPlayfieldCards()
+std::vector<std::shared_ptr<CardModel>>& GameModel::getPlayfieldCards()
 {
     return _playfieldCards;
 }
 
-const std::vector<CardModel>& GameModel::getPlayfieldCards() const
+const std::vector<std::shared_ptr<CardModel>>& GameModel::getPlayfieldCards() const
 {
     return _playfieldCards;
 }
 
-std::vector<CardModel>& GameModel::getStackCards()
+std::vector<std::shared_ptr<CardModel>>& GameModel::getStackCards()
 {
     return _stackCards;
 }
 
-const std::vector<CardModel>& GameModel::getStackCards() const
+const std::vector<std::shared_ptr<CardModel>>& GameModel::getStackCards() const
 {
     return _stackCards;
+}
+
+void GameModel::addPlayfieldCard(const std::shared_ptr<CardModel>& card)
+{
+    // 如果 card 没有 id，则分配
+    if (card->getId() == -1) {
+        card->setId(allocateCardId());
+    }
+    _playfieldCards.push_back(card);
+}
+
+void GameModel::addStackCard(const std::shared_ptr<CardModel>& card)
+{
+    if (card->getId() == -1) {
+        card->setId(allocateCardId());
+    }
+    _stackCards.push_back(card);
 }
 
 bool GameModel::movePlayfieldCardToStack(int playfieldIndex)
@@ -34,19 +51,15 @@ bool GameModel::movePlayfieldCardToStack(int playfieldIndex)
         return false; // 索引无效
     }
 
-    auto& card = _playfieldCards[playfieldIndex];
-    if (!card.isFaceUp() || !card.isVisible()) {
-        return false; // 牌未翻开或不可见，无法移动
+    auto cardPtr = _playfieldCards[playfieldIndex];
+    if (!cardPtr->isFaceUp() || !cardPtr->isVisible()) {
+        return false; // 不能移动的卡
     }
 
-    // 移动牌到备用牌堆顶部
-    _stackCards.push_back(card);
-    // 从主牌区移除该牌
+    // 移动到 stack 的尾部 (作为顶牌)
+    _stackCards.push_back(cardPtr);
+    // 从 playfield 中移除
     _playfieldCards.erase(_playfieldCards.begin() + playfieldIndex);
-
-    // 检查是否需要更新被移走牌下方的牌的可见性
-    // (这里简化处理，假设所有牌都是独立放置，没有层级覆盖关系)
-    // 如果有覆盖逻辑，需要在此处更新下方牌的 _isVisible 状态
 
     return true;
 }
@@ -54,28 +67,30 @@ bool GameModel::movePlayfieldCardToStack(int playfieldIndex)
 bool GameModel::flipTopStackCard()
 {
     if (_stackCards.empty()) {
-        return false; // 牌堆为空，无法翻牌
+        return false;
     }
 
-    // 翻开备用牌堆顶部的牌
     auto& topCard = _stackCards.back();
-    topCard.setFaceUp(true);
+    topCard->setFaceUp(true);
     return true;
 }
 
 bool GameModel::hasMovablePlayfieldCard() const
 {
-    // 检查是否存在翻开且可见的牌
-    return std::any_of(_playfieldCards.begin(), _playfieldCards.end(), [](const CardModel& card) {
-        return card.isFaceUp() && card.isVisible();
+    return std::any_of(_playfieldCards.begin(), _playfieldCards.end(), [](const std::shared_ptr<CardModel>& card) {
+        return card->isFaceUp() && card->isVisible();
         });
 }
 
 bool GameModel::canMatchWithTopStackCard() const
 {
     if (_stackCards.empty()) {
-        return false; // 牌堆为空，无法匹配
+        return false;
     }
-    // 检查备用牌堆顶部的牌是否已翻开
-    return _stackCards.back().isFaceUp();
+    return _stackCards.back()->isFaceUp();
+}
+
+int GameModel::allocateCardId()
+{
+    return _nextCardId++;
 }

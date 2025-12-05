@@ -6,106 +6,80 @@
 #include "cocos2d.h"
 #include "utils/CardEnums.h"
 #include <functional> // For std::function
+#include <memory>
 
-// 前向声明，避免循环依赖
+// 前向声明
 class CardModel;
 
 /**
- * @brief 卡牌视图组件
- * @details 负责显示卡牌图片，处理触摸事件，并提供动画接口。
- *          不包含业务逻辑，仅负责UI展示和用户输入捕获。
+ * @brief 卡牌视图
+ * @details 负责显示卡牌图片并处理交互回调，具体业务由 Controller 处理
  */
 class CardView : public cocos2d::Node
 {
 public:
     /**
-     * @brief 创建卡牌视图
-     * @param cardModel 指向关联的卡牌数据模型的常量指针
-     * @return 成功则返回实例指针，失败返回 nullptr
+     * @brief 创建 CardView（使用 shared_ptr<CardModel>）
+     * @param cardModel 共享的卡牌模型
      */
-    static CardView* create(const CardModel* cardModel);
+    static CardView* create(const std::shared_ptr<CardModel>& cardModel);
 
     /**
-     * @brief 初始化卡牌视图
-     * @param cardModel 指向关联的卡牌数据模型的常量指针
-     * @return 成功则返回 true，失败返回 false
+     * @brief 初始化
      */
-    bool init(const CardModel* cardModel);
+    bool init(const std::shared_ptr<CardModel>& cardModel);
 
     /**
-     * @brief 设置卡牌是否可见（正面朝上）
-     * @param visible true 显示正面图片，false 显示背面图片
+     * @brief 设置正面/背面显示
      */
     void setCardVisible(bool visible);
 
     /**
-     * @brief 获取卡牌的 ID
-     * @return 卡牌的唯一标识符
+     * @brief 获取卡牌 ID
      */
     int getCardId() const;
 
     /**
-     * @brief 获取卡牌的点数
-     * @return 卡牌的点数（CardFaceType）
+     * @brief 获取卡牌点数
      */
     CardFaceType getCardFace() const;
 
     /**
-     * @brief 获取卡牌的花色
-     * @return 卡牌的花色（CardSuitType）
+     * @brief 获取卡牌花色
      */
     CardSuitType getCardSuit() const;
 
     /**
-     * @brief 获取卡牌的当前位置
-     * @return 卡牌当前的坐标
+     * @brief 当前节点位置
      */
     cocos2d::Vec2 getCurrentPosition() const;
 
     /**
      * @brief 播放移动动画
-     * @param targetPos 动画的目标位置
-     * @param duration 动画持续时间
-     * @param completionCallback 动画完成后的回调函数
      */
     void playMoveAnimation(cocos2d::Vec2 targetPos, float duration, std::function<void()> completionCallback = nullptr);
 
     /**
-     * @brief 播放反向移动动画（用于回退）
-     * @param targetPos 动画的目标位置（通常是原始位置）
-     * @param duration 动画持续时间
-     * @param completionCallback 动画完成后的回调函数
+     * @brief 播放反向移动动画（目前直接同 playMoveAnimation）
      */
     void playReverseMoveAnimation(cocos2d::Vec2 targetPos, float duration, std::function<void()> completionCallback = nullptr);
 
     /**
-     * @brief 设置点击回调函数
-     * @param callback 当卡牌被点击时调用的函数
+     * @brief 设置点击回调（传出 cardId）
      */
     void setClickCallback(std::function<void(int)> callback);
 
 private:
-    // 私有成员变量
-    const CardModel* _cardModel; ///< 指向关联的卡牌数据模型的常量指针
-    cocos2d::Sprite* _frontSprite; ///< 正面图片精灵
-    cocos2d::Sprite* _backSprite; ///< 背面图片精灵
-    std::function<void(int)> _clickCallback; ///< 点击回调函数
+    // 使用 weak_ptr 持有模型，避免视图持有强引用或悬挂裸指针
+    std::weak_ptr<CardModel> _cardModel; ///< 指向模型的弱引用
+    cocos2d::Sprite* _frontSprite = nullptr; ///< 正面图片
+    cocos2d::Sprite* _backSprite = nullptr; ///< 背面图片
+    std::function<void(int)> _clickCallback; ///< 点击回调
 
-    // 私有方法
-    /**
-     * @brief 加载卡牌图片
-     * @param faceType 卡牌点数
-     * @param suitType 卡牌花色
-     * @return 成功则返回精灵指针，失败返回 nullptr
-     */
+    // 辅助函数
     cocos2d::Sprite* loadCardSprite(CardFaceType faceType, CardSuitType suitType);
 
-    /**
-     * @brief 触摸事件处理函数
-     * @param touch 触摸对象
-     * @param event 事件对象
-     * @return 是否消费了触摸事件
-     */
+    // 触摸回调
     bool onTouchBegan(cocos2d::Touch* touch, cocos2d::Event* event);
     void onTouchEnded(cocos2d::Touch* touch, cocos2d::Event* event);
 };
