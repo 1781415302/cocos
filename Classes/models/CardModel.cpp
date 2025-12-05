@@ -1,81 +1,48 @@
-// test/Classes/models/GameModel.cpp
-#include "GameModel.h"
+// test/Classes/models/CardModel.cpp
 #include "CardModel.h"
-#include <algorithm> // for std::find_if
 
-GameModel::GameModel()
+CardModel::CardModel(CardSuitType suit, CardFaceType face, cocos2d::Vec2 position, bool isFaceUp)
+    : _suit(suit), _face(face), _position(position), _isFaceUp(isFaceUp), _isVisible(true)
 {
     // 构造函数体
 }
 
-std::vector<CardModel>& GameModel::getPlayfieldCards()
+CardSuitType CardModel::getSuit() const
 {
-    return _playfieldCards;
+    return _suit;
 }
 
-const std::vector<CardModel>& GameModel::getPlayfieldCards() const
+CardFaceType CardModel::getFace() const
 {
-    return _playfieldCards;
+    return _face;
 }
 
-std::vector<CardModel>& GameModel::getStackCards()
+cocos2d::Vec2 CardModel::getPosition() const
 {
-    return _stackCards;
+    return _position;
 }
 
-const std::vector<CardModel>& GameModel::getStackCards() const
+void CardModel::setPosition(const cocos2d::Vec2& position)
 {
-    return _stackCards;
+    _position = position;
 }
 
-bool GameModel::movePlayfieldCardToStack(int playfieldIndex)
+bool CardModel::isFaceUp() const
 {
-    if (playfieldIndex < 0 || playfieldIndex >= static_cast<int>(_playfieldCards.size())) {
-        return false; // 索引无效
-    }
-
-    auto& card = _playfieldCards[playfieldIndex];
-    if (!card.isFaceUp() || !card.isVisible()) {
-        return false; // 牌未翻开或不可见，无法移动
-    }
-
-    // 移动牌到备用牌堆顶部
-    _stackCards.push_back(card);
-    // 从主牌区移除该牌
-    _playfieldCards.erase(_playfieldCards.begin() + playfieldIndex);
-
-    // 检查是否需要更新被移走牌下方的牌的可见性
-    // (这里简化处理，假设所有牌都是独立放置，没有层级覆盖关系)
-    // 如果有覆盖逻辑，需要在此处更新下方牌的 _isVisible 状态
-
-    return true;
+    return _isFaceUp;
 }
 
-bool GameModel::flipTopStackCard()
+void CardModel::setFaceUp(bool isFaceUp)
 {
-    if (_stackCards.empty()) {
-        return false; // 牌堆为空，无法翻牌
-    }
-
-    // 翻开备用牌堆顶部的牌
-    auto& topCard = _stackCards.back();
-    topCard.setFaceUp(true);
-    return true;
+    _isFaceUp = isFaceUp;
 }
 
-bool GameModel::hasMovablePlayfieldCard() const
+bool CardModel::isVisible() const
 {
-    // 检查是否存在翻开且可见的牌
-    return std::any_of(_playfieldCards.begin(), _playfieldCards.end(), [](const CardModel& card) {
-        return card.isFaceUp() && card.isVisible();
-    });
+    return _isVisible;
 }
 
-bool GameModel::canMatchWithTopStackCard() const
+void CardModel::setVisible(bool visible)
 {
-    if (_stackCards.empty()) {
-        return false; // 牌堆为空，无法匹配
-    }
-    // 检查备用牌堆顶部的牌是否已翻开
-    return _stackCards.back().isFaceUp();
+    _isVisible = visible;
 }
