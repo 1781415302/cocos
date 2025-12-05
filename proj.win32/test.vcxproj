@@ -157,6 +157,7 @@ xcopy "$(ProjectDir)..\Resources" "$(OutDir)\Resources\" /D /E /I /F /Y
     <ClCompile Include="..\Classes\models\CardModel.cpp" />
     <ClCompile Include="..\Classes\models\GameModel.cpp" />
     <ClCompile Include="..\Classes\services\GameModelFromLevelGenerator.cpp" />
+    <ClCompile Include="..\Classes\views\CardView.cpp" />
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -168,6 +169,7 @@ xcopy "$(ProjectDir)..\Resources" "$(OutDir)\Resources\" /D /E /I /F /Y
     <ClInclude Include="..\Classes\models\GameModel.h" />
     <ClInclude Include="..\Classes\services\GameModelFromLevelGenerator.h" />
     <ClInclude Include="..\Classes\utils\CardEnums.h" />
+    <ClInclude Include="..\Classes\views\CardView.h" />
     <ClInclude Include="main.h" />
   </ItemGroup>
   <ItemGroup>
@@ -181,6 +183,9 @@ xcopy "$(ProjectDir)..\Resources" "$(OutDir)\Resources\" /D /E /I /F /Y
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="game.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\Resources\levels\1.json" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

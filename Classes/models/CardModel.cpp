@@ -1,20 +1,27 @@
-// test/Classes/models/CardModel.cpp
+// Classes/models/CardModel.cpp
 #include "CardModel.h"
 
-CardModel::CardModel(CardSuitType suit, CardFaceType face, cocos2d::Vec2 position, bool isFaceUp)
-    : _suit(suit), _face(face), _position(position), _isFaceUp(isFaceUp), _isVisible(true)
+// 构造函数实现
+CardModel::CardModel(int id, CardFaceType faceType, CardSuitType suitType, cocos2d::Vec2 position, CardStatus status)
+    : _id(id), _cardFace(faceType), _cardSuit(suitType), _position(position), _status(status)
 {
-    // 构造函数体
+    // 构造函数体可以为空，因为所有成员都在初始化列表中初始化了
 }
 
-CardSuitType CardModel::getSuit() const
+// Getter 实现
+int CardModel::getId() const
 {
-    return _suit;
+    return _id;
 }
 
-CardFaceType CardModel::getFace() const
+CardFaceType CardModel::getCardFace() const
 {
-    return _face;
+    return _cardFace;
+}
+
+CardSuitType CardModel::getCardSuit() const
+{
+    return _cardSuit;
 }
 
 cocos2d::Vec2 CardModel::getPosition() const
@@ -22,27 +29,18 @@ cocos2d::Vec2 CardModel::getPosition() const
     return _position;
 }
 
-void CardModel::setPosition(const cocos2d::Vec2& position)
+CardStatus CardModel::getStatus() const
 {
-    _position = position;
+    return _status;
 }
 
-bool CardModel::isFaceUp() const
+// Setter 实现
+void CardModel::setPosition(cocos2d::Vec2 pos)
 {
-    return _isFaceUp;
+    _position = pos;
 }
 
-void CardModel::setFaceUp(bool isFaceUp)
+void CardModel::setStatus(CardStatus status)
 {
-    _isFaceUp = isFaceUp;
-}
-
-bool CardModel::isVisible() const
-{
-    return _isVisible;
-}
-
-void CardModel::setVisible(bool visible)
-{
-    _isVisible = visible;
+    _status = status;
 }

@@ -22,6 +22,12 @@
     <Filter Include="src\Util">
       <UniqueIdentifier>{ba9200ca-f60f-4515-b738-5616a83f08f2}</UniqueIdentifier>
     </Filter>
+    <Filter Include="resource\levels">
+      <UniqueIdentifier>{0d90e7d6-635c-409d-ae69-eb7e0451332a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\View">
+      <UniqueIdentifier>{b5ede980-dc23-4ae5-bc0f-c50a19a20cdb}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
@@ -47,6 +53,9 @@
     </ClCompile>
     <ClCompile Include="..\Classes\models\GameModel.cpp">
       <Filter>src\Model</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Classes\views\CardView.cpp">
+      <Filter>src\View</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -77,10 +86,18 @@
     <ClInclude Include="..\Classes\utils\CardEnums.h">
       <Filter>src\Util</Filter>
     </ClInclude>
+    <ClInclude Include="..\Classes\views\CardView.h">
+      <Filter>src\View</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="game.rc">
       <Filter>resource</Filter>
     </ResourceCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\Resources\levels\1.json">
+      <Filter>resource\levels</Filter>
+    </None>
   </ItemGroup>
 </Project>
