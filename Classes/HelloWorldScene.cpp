@@ -1,5 +1,3 @@
-
-
 #include "HelloWorldScene.h"
 #include "SimpleAudioEngine.h"
 
@@ -10,18 +8,18 @@ Scene* HelloWorld::createScene()
     return HelloWorld::create();
 }
 
-// Print useful error message instead of segfaulting when files are not there.
+// 当文件不存在时打印有用的错误信息以避免段错误
 static void problemLoading(const char* filename)
 {
     printf("Error while loading: %s\n", filename);
     printf("Depending on how you compiled you might have to add 'Resources/' in front of filenames in HelloWorldScene.cpp\n");
 }
 
-// on "init" you need to initialize your instance
+// 在 "init" 中需要初始化你的实例
 bool HelloWorld::init()
 {
     //////////////////////////////
-    // 1. super init first
+    // 1. 先调用父类初始化
     if ( !Scene::init() )
     {
         return false;
@@ -31,10 +29,10 @@ bool HelloWorld::init()
     Vec2 origin = Director::getInstance()->getVisibleOrigin();
 
     /////////////////////////////
-    // 2. add a menu item with "X" image, which is clicked to quit the program
-    //    you may modify it.
+    // 2. 添加一个带 "X" 的菜单项，点击可退出程序
+    //    你可以按需修改它。
 
-    // add a "close" icon to exit the progress. it's an autorelease object
+    // 添加一个“关闭”图标用于退出。该对象为自动释放对象
     auto closeItem = MenuItemImage::create(
                                            "CloseNormal.png",
                                            "CloseSelected.png",
@@ -53,16 +51,16 @@ bool HelloWorld::init()
         closeItem->setPosition(Vec2(x,y));
     }
 
-    // create menu, it's an autorelease object
+    // 创建菜单（自动释放对象）
     auto menu = Menu::create(closeItem, NULL);
     menu->setPosition(Vec2::ZERO);
     this->addChild(menu, 1);
 
     /////////////////////////////
-    // 3. add your codes below...
+    // 3. 在下面添加你的代码...
 
-    // add a label shows "Hello World"
-    // create and initialize a label
+    // 添加一个显示 "Hello World" 的标签
+    // 创建并初始化标签
 
     auto label = Label::createWithTTF("Hello World", "fonts/Marker Felt.ttf", 24);
     if (label == nullptr)
@@ -71,15 +69,15 @@ bool HelloWorld::init()
     }
     else
     {
-        // position the label on the center of the screen
+        // 将标签定位到屏幕顶部中间
         label->setPosition(Vec2(origin.x + visibleSize.width/2,
                                 origin.y + visibleSize.height - label->getContentSize().height));
 
-        // add the label as a child to this layer
+        // 将标签作为子节点添加到该层
         this->addChild(label, 1);
     }
 
-    // add "HelloWorld" splash screen"
+    // 添加 "HelloWorld" 启动画面
     auto sprite = Sprite::create("HelloWorld.png");
     if (sprite == nullptr)
     {
@@ -87,10 +85,10 @@ bool HelloWorld::init()
     }
     else
     {
-        // position the sprite on the center of the screen
+        // 将精灵定位到屏幕中心
         sprite->setPosition(Vec2(visibleSize.width/2 + origin.x, visibleSize.height/2 + origin.y));
 
-        // add the sprite as a child to this layer
+        // 将精灵作为子节点添加到该层
         this->addChild(sprite, 0);
     }
     return true;
@@ -99,10 +97,11 @@ bool HelloWorld::init()
 
 void HelloWorld::menuCloseCallback(Ref* pSender)
 {
-    //Close the cocos2d-x game scene and quit the application
+    // 关闭 cocos2d-x 游戏场景并退出应用
     Director::getInstance()->end();
 
-    /*To navigate back to native iOS screen(if present) without quitting the application  ,do not use Director::getInstance()->end() as given above,instead trigger a custom event created in RootViewController.mm as below*/
+    /* 如果希望在不退出应用的情况下返回原生 iOS 界面（如果存在），
+       请不要使用上面的 Director::getInstance()->end()，而应触发在 RootViewController.mm 中创建的自定义事件，例如： */
 
     //EventCustom customEndEvent("game_scene_close_event");
     //_eventDispatcher->dispatchEvent(&customEndEvent);
