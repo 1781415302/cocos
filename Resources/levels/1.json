@@ -13,8 +13,7 @@
         {
             "CardFace": 2,
             "CardSuit": 1,
-            "Position": {"x": 350, "y": 600
-            }
+            "Position": {"x": 350, "y": 600}
         },
         {
             "CardFace": 2,

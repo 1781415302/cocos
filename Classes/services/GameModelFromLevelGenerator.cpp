@@ -9,14 +9,14 @@
  * - hand（底牌堆）在默认情况下为空；如果你希望关卡配置包含初始 hand，请扩展 LevelConfig 格式并这里按需填充。
  */
 
-GameModel GameModelFromLevelGenerator::generateGameModel(const LevelConfig & config)
+GameModel GameModelFromLevelGenerator::generateGameModel(const LevelConfig& config)
 {
     GameModel gameModel;
 
     // Playfield
     const auto& playfieldConfig = config.getPlayfieldConfig();
     for (const auto& cardConfig : playfieldConfig.cards) {
-        bool isFaceUp = true; // playfield 中按你的规则可能都是翻开
+        bool isFaceUp = true; // playfield 上的牌默认翻开
         auto card = std::make_shared<CardModel>(cardConfig.suit, cardConfig.face, cardConfig.position, isFaceUp);
         gameModel.addPlayfieldCard(card);
     }
@@ -25,15 +25,12 @@ GameModel GameModelFromLevelGenerator::generateGameModel(const LevelConfig & con
     const auto& stackConfig = config.getStackConfig();
     for (size_t i = 0; i < stackConfig.cards.size(); ++i) {
         const auto& cardConfig = stackConfig.cards[i];
+        // 修改点：所有 reserve 卡在初始时都为背面（未翻开）
         bool isFaceUp = false;
-        // 若你希望 reserve 顶牌显示为翻开，可将最后一张设为翻开（按原实现）
-        if (!stackConfig.cards.empty() && i == stackConfig.cards.size() - 1) {
-            isFaceUp = true;
-        }
         auto card = std::make_shared<CardModel>(cardConfig.suit, cardConfig.face, cardConfig.position, isFaceUp);
         gameModel.addReserveCard(card);
     }
 
-    // hand 初始为空（也可由关卡配置决定）
+    // hand 默认为空，GameController 会在 start 时抽一张到 hand
     return gameModel;
 }

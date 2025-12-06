@@ -14,7 +14,7 @@ GameController::GameController(Node* parentNode)
 {
     assert(parentNode && "GameController requires a valid parent node");
 
-    // 创建三个子节点并添加到 parent
+    // 创建三个子节点并 attach 到 parent
     _playfieldNode = Node::create();
     _reserveNode = Node::create();
     _handNode = Node::create();
@@ -23,7 +23,7 @@ GameController::GameController(Node* parentNode)
     _reserveNode->setName("reserve_node");
     _handNode->setName("hand_node");
 
-    // ZOrder: playfield 下面, reserve 中间, hand 最上
+    // ZOrder: playfield 最下, reserve 中间, hand 最上
     _parentNode->addChild(_playfieldNode, 0);
     _parentNode->addChild(_reserveNode, 5);
     _parentNode->addChild(_handNode, 10);
@@ -41,10 +41,10 @@ void GameController::startGame(const std::string& levelId)
 {
     reset();
 
-    // 1) 加载关卡配置
+    // 1) 读取关卡配置
     LevelConfig config = LevelConfigLoader::loadLevelConfig(levelId);
 
-    // 2) 生成游戏 model：注意用 GameModelFromLevelGenerator
+    // 2) 生成游戏 model（playfield/reserve/hand）
     _gameModel = GameModelFromLevelGenerator::generateGameModel(config);
 
     // 3) 根据 model 创建视图 CardView
@@ -72,7 +72,7 @@ void GameController::createViewsFromModel()
         v->setCardVisible(cardPtr->isFaceUp());
     }
 
-    // Reserve（备用堆），点击为 draw
+    // Reserve（备用牌），显示为背面或正面由 model 中的 isFaceUp 决定
     const auto& reserve = _gameModel.getReserveCards();
     for (size_t i = 0; i < reserve.size(); ++i) {
         auto cardPtr = reserve[i];
@@ -83,16 +83,16 @@ void GameController::createViewsFromModel()
         _reserveNode->addChild(v);
         _cardViews[cardPtr->getId()] = v;
 
-        // reserve 的点击仅作为 draw 操作（不传入 id）
+        // reserve 的点击行为为 draw（不传 card id）
         v->setClickCallback([this](int /*cardId*/) {
             this->handleReserveClick();
             });
 
-        // 根据模型状态显示
+        // 使用 model 的 isFaceUp 来决定显示（现在 reserve 初始为背面，除非被翻到 hand）
         v->setCardVisible(cardPtr->isFaceUp());
     }
 
-    // Hand（手牌区）
+    // Hand 区
     const auto& hand = _gameModel.getHandCards();
     for (size_t i = 0; i < hand.size(); ++i) {
         auto cardPtr = hand[i];
@@ -102,7 +102,7 @@ void GameController::createViewsFromModel()
         _handNode->addChild(v);
         _cardViews[cardPtr->getId()] = v;
 
-        // hand 的点击目前 noop（将来可以扩展）
+        // hand 的点击当前为 no-op
         v->setClickCallback([this](int /*cardId*/) {
             // no-op
             });
@@ -155,7 +155,7 @@ void GameController::handlePlayfieldCardClick(int cardId)
         return;
     }
 
-    // 确认 hand (栈顶) 可用于匹配
+    // 确认 hand (堆顶) 有牌并是可匹配状态
     if (!_gameModel.canMatchWithHandTop()) {
         CCLOG("GameController::handlePlayfieldCardClick - no matching hand top");
         return;
@@ -169,19 +169,13 @@ void GameController::handlePlayfieldCardClick(int cardId)
         return;
     }
 
-    // 通过动画把 playfield 卡移动到 hand
+    // 通过动画把 playfield 卡移到 hand
     _busy = true;
     animatePlayfieldCardToHand(playIndex, cardId);
 }
 
 /*
-  变更说明（仅修改本文件中的两个动画函数）：
-  - 原来直接把 targetPos（design-space）传入 view->playMoveAnimation，产生坐标系不匹配的问题。
-  - 现在做三步变换：
-      1) 把 design-space targetPos（这里是相对于 _parentNode 的设计坐标）转换为 world 坐标：worldTarget
-      2) 把 worldTarget 转换为 card 当前 parent 的本地坐标 localTargetForCurrentParent，用于动画
-      3) 动画完成后更新 model，并将 card view reparent 到 _handNode（如需），最后把位置设置为 handNode 的本地坐标（通过 convertToNodeSpace(worldTarget)）
-  - 这样能保证动画轨迹在父节点不同的情况下仍然正确。
+  说明动画相关处理（保持原注释不变）
 */
 
 void GameController::animatePlayfieldCardToHand(int playfieldIndex, int cardId)
@@ -194,20 +188,20 @@ void GameController::animatePlayfieldCardToHand(int playfieldIndex, int cardId)
     }
     CardView* view = it->second;
 
-    // 目标位置：hand 顶部或默认位置（design-space，假定相对于 _parentNode）
+    // 目标位置，hand 的默认位置或手牌最后一张的位置
     Vec2 targetPos = _defaultHandPosition;
     const auto& hand = _gameModel.getHandCards();
     if (!hand.empty()) {
         targetPos = hand.back()->getPosition();
     }
 
-    // 将 design-space (parentNode) 坐标转为 world 坐标
+    // design-space -> world
     Vec2 worldTarget = targetPos;
     if (_parentNode) {
         worldTarget = _parentNode->convertToWorldSpace(targetPos);
     }
 
-    // 将 worldTarget 转为 card 当前父节点的本地坐标（动画在当前父节点坐标系中执行）
+    // world -> view 当前 parent 的 local
     Node* currentParent = view->getParent();
     if (!currentParent) {
         CCLOG("GameController::animatePlayfieldCardToHand - view has no parent, aborting");
@@ -216,9 +210,9 @@ void GameController::animatePlayfieldCardToHand(int playfieldIndex, int cardId)
     }
     Vec2 localTargetForCurrentParent = currentParent->convertToNodeSpace(worldTarget);
 
-    // 播放移动动画（在当前 parent 的坐标系内移动）
+    // 播放移动动画（在当前 parent 下）
     view->playMoveAnimation(localTargetForCurrentParent, _moveDuration, [this, playfieldIndex, cardId, worldTarget, targetPos]() {
-        // 在动画完成时，先更新 model（将 playfield -> hand）
+        // 第二阶段回调：更新 model：playfield -> hand
         bool ok = _gameModel.movePlayfieldCardToHand(playfieldIndex);
         if (!ok) {
             CCLOG("GameController::animatePlayfieldCardToHand - model move failed for id %d", cardId);
@@ -226,7 +220,7 @@ void GameController::animatePlayfieldCardToHand(int playfieldIndex, int cardId)
             return;
         }
 
-        // 获取被移动的 card（现在应该是 hand 的最后一张）
+        // 获取被移动的 card（model）
         const auto& handRef = _gameModel.getHandCards();
         if (handRef.empty()) {
             CCLOG("GameController::animatePlayfieldCardToHand - model reports empty hand after move (cardId=%d)", cardId);
@@ -239,11 +233,11 @@ void GameController::animatePlayfieldCardToHand(int playfieldIndex, int cardId)
             _busy = false;
             return;
         }
-        // 更新 model 中的位置/状态为 design-space 的目标
+        // 将 model 的位置/状态设置为 design-space 目标
         moved->setPosition(targetPos);
         moved->setFaceUp(true);
 
-        // 更新对应的 CardView：reparent 到 handNode，并把位置设置为 handNode 的本地坐标
+        // 更新对应的 CardView：reparent 到 handNode 并设置位置/可见性
         auto itv = _cardViews.find(moved->getId());
         if (itv != _cardViews.end()) {
             CardView* v = itv->second;
@@ -276,14 +270,14 @@ void GameController::handleReserveClick()
         return;
     }
 
-    // 启动抽牌动画
+    // 执行抽牌动作（动画/模型会在 animateReserveTopToHand 里完成）
     _busy = true;
     animateReserveTopToHand();
 }
 
 void GameController::animateReserveTopToHand()
 {
-    // 取 reserve 顶部（back）视图
+    // 取 reserve 的 back（顶部）牌
     const auto& reserve = _gameModel.getReserveCards();
     if (reserve.empty()) {
         _busy = false;
@@ -304,20 +298,20 @@ void GameController::animateReserveTopToHand()
     }
     CardView* view = it->second;
 
-    // 目标位置：hand 顶部或默认位置（design-space，假定相对于 _parentNode）
+    // 目标位置，hand 的默认位置或手牌最后一张的位置
     Vec2 targetPos = _defaultHandPosition;
     const auto& hand = _gameModel.getHandCards();
     if (!hand.empty()) {
         targetPos = hand.back()->getPosition();
     }
 
-    // 将 design-space (parentNode) 坐标转为 world 坐标
+    // design-space -> world
     Vec2 worldTarget = targetPos;
     if (_parentNode) {
         worldTarget = _parentNode->convertToWorldSpace(targetPos);
     }
 
-    // 将 worldTarget 转为 card 当前父节点的本地坐标（动画在当前父节点坐标系中执行）
+    // world -> card 当前 parent 的 local
     Node* currentParent = view->getParent();
     if (!currentParent) {
         CCLOG("GameController::animateReserveTopToHand - view has no parent, aborting");
@@ -326,9 +320,9 @@ void GameController::animateReserveTopToHand()
     }
     Vec2 localTargetForCurrentParent = currentParent->convertToNodeSpace(worldTarget);
 
-    // 播放移动动画（在当前 parent 的坐标系内移动）
+    // 播放移动动画
     view->playMoveAnimation(localTargetForCurrentParent, _moveDuration, [this, cardId, worldTarget, targetPos]() {
-        // 更新 model：从 reserve 抽取到 hand（使用 drawReserveToHand）
+        // 模型层执行 draw（reserve -> hand）
         bool ok = _gameModel.drawReserveToHand();
         if (!ok) {
             CCLOG("GameController::animateReserveTopToHand - model draw failed for id %d", cardId);
@@ -336,7 +330,7 @@ void GameController::animateReserveTopToHand()
             return;
         }
 
-        // 更新 model->view：刚被抽取的卡现在位于 hand 的末尾
+        // 从 model 中获取被移动的 card 并更新 view（reparent 到 handNode）
         const auto& handRef = _gameModel.getHandCards();
         if (!handRef.empty()) {
             auto moved = handRef.back();
