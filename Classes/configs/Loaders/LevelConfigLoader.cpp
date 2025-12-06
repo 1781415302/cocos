@@ -1,18 +1,21 @@
 #include "LevelConfigLoader.h"
 #include "cocos2d.h"
-#include <iomanip>
+#include <cmath>
+#include <limits>
 #include <sstream>
-#include <cmath> // 为了 std::modf
 
-// rapidjson headers (cocos2d-x 自带 rapidjson)
+// rapidjson 头文件（cocos2d-x 自带）
 #include "json/document.h"
 #include "json/error/en.h"
 
 using namespace cocos2d;
-// 注意：不使用 `using namespace rapidjson;`，改为显式使用 rapidjson:: 前缀
 
-static Value rapidjsonValueToCocosValue(const rapidjson::Value& rv); // forward
+// 前置声明（递归转换相关）
+static Value rapidjsonValueToCocosValue(const rapidjson::Value& rv);
+static ValueMap rapidjsonObjectToValueMap(const rapidjson::Value& obj);
+static ValueVector rapidjsonArrayToValueVector(const rapidjson::Value& arr);
 
+// 将 rapidjson 对象转换为 cocos2d::ValueMap（递归）
 static ValueMap rapidjsonObjectToValueMap(const rapidjson::Value& obj) {
     ValueMap map;
     for (auto it = obj.MemberBegin(); it != obj.MemberEnd(); ++it) {
@@ -22,6 +25,7 @@ static ValueMap rapidjsonObjectToValueMap(const rapidjson::Value& obj) {
     return map;
 }
 
+// 将 rapidjson 数组转换为 cocos2d::ValueVector（递归）
 static ValueVector rapidjsonArrayToValueVector(const rapidjson::Value& arr) {
     ValueVector vec;
     for (rapidjson::SizeType i = 0; i < arr.Size(); ++i) {
@@ -30,8 +34,8 @@ static ValueVector rapidjsonArrayToValueVector(const rapidjson::Value& arr) {
     return vec;
 }
 
+// 将单个 rapidjson::Value 转为 cocos2d::Value（保留整数/浮点/字符串/布尔/空/对象/数组）
 static Value rapidjsonValueToCocosValue(const rapidjson::Value& rv) {
-    // Convert rapidjson::Value -> cocos2d::Value
     if (rv.IsObject()) {
         return Value(rapidjsonObjectToValueMap(rv));
     }
@@ -48,147 +52,121 @@ static Value rapidjsonValueToCocosValue(const rapidjson::Value& rv) {
         return Value(rv.GetInt());
     }
     else if (rv.IsUint()) {
-        // cocos2d::Value doesn't have unsigned int variant; store as int (beware overflow)
-        return Value(static_cast<int>(rv.GetUint()));
+        unsigned int u = rv.GetUint();
+        if (u <= static_cast<unsigned int>(std::numeric_limits<int>::max())) {
+            return Value(static_cast<int>(u));
+        }
+        else {
+            // 超出 int 范围则转为字符串以避免截断
+            return Value(std::to_string(u));
+        }
     }
     else if (rv.IsInt64()) {
-        return Value(static_cast<int>(rv.GetInt64()));
+        int64_t v = rv.GetInt64();
+        if (v <= static_cast<int64_t>(std::numeric_limits<int>::max()) &&
+            v >= static_cast<int64_t>(std::numeric_limits<int>::min())) {
+            return Value(static_cast<int>(v));
+        }
+        else {
+            return Value(std::to_string(v));
+        }
     }
     else if (rv.IsUint64()) {
-        return Value(static_cast<int>(rv.GetUint64()));
+        uint64_t v = rv.GetUint64();
+        if (v <= static_cast<uint64_t>(std::numeric_limits<int>::max())) {
+            return Value(static_cast<int>(v));
+        }
+        else {
+            return Value(std::to_string(v));
+        }
     }
     else if (rv.IsDouble()) {
         double d = rv.GetDouble();
         double intpart;
-        if (std::modf(d, &intpart) == 0.0 && intpart <= static_cast<double>(INT_MAX) && intpart >= static_cast<double>(INT_MIN)) {
+        // 如果是整数且在 int 范围内，则保存为 int，否则保存为 float（cocos2d::Value 使用 float 存储浮点）
+        if (std::modf(d, &intpart) == 0.0 &&
+            intpart <= static_cast<double>(std::numeric_limits<int>::max()) &&
+            intpart >= static_cast<double>(std::numeric_limits<int>::min())) {
             return Value(static_cast<int>(intpart));
         }
         return Value(static_cast<float>(d));
     }
     else if (rv.IsNull()) {
-        return Value(); // null/default
+        return Value(); // 默认构造的 Value 表示 null/空
     }
-    // fallback: stringify
+
+    // 兜底（理论上不会到这里）
     if (rv.IsString()) {
         return Value(std::string(rv.GetString()));
     }
     return Value();
 }
 
+// 直接使用 rapidjson 解析并构建 LevelConfig，不输出诊断日志
 LevelConfig LevelConfigLoader::loadLevelConfig(const std::string& levelId)
 {
     LevelConfig config;
-    std::string filePath = "levels/" + levelId + ".json"; // resources/levels/<levelId>.json
+    std::string filePath = "levels/" + levelId + ".json";
 
     auto fileUtils = FileUtils::getInstance();
 
-    // 1) 打印文件存在性与 full path，用于诊断
-    bool exists = fileUtils->isFileExist(filePath);
-    CCLOG("LevelConfigLoader::loadLevelConfig - isFileExist('%s') = %d", filePath.c_str(), exists ? 1 : 0);
-    std::string fullPath = fileUtils->fullPathForFilename(filePath);
-    CCLOG("LevelConfigLoader::loadLevelConfig - fullPathForFilename('%s') = '%s'", filePath.c_str(), fullPath.c_str());
-
-    if (!exists) {
-        CCLOG("LevelConfigLoader::loadLevelConfig - file not found: %s", filePath.c_str());
+    // 如果文件不存在或读取为空，则返回空的 config
+    if (!fileUtils->isFileExist(filePath)) {
         return config;
     }
 
-    // 2) 读取原始文本并打印前 200 字符和前几个字节的十六进制（用于发现 BOM 或奇怪字符）
     std::string content = fileUtils->getStringFromFile(filePath);
-    CCLOG("LevelConfigLoader::loadLevelConfig - file size = %zu bytes", content.size());
-    if (!content.empty()) {
-        CCLOG("LevelConfigLoader::loadLevelConfig - preview = %.200s", content.c_str());
-
-        // 打印前 16 字节的十六进制，方便看 BOM（EF BB BF）或其他不可见字符
-        std::ostringstream oss;
-        size_t n = std::min<size_t>(16, content.size());
-        for (size_t i = 0; i < n; ++i) {
-            oss << std::hex << std::setfill('0') << std::setw(2) << (static_cast<unsigned int>(static_cast<unsigned char>(content[i]))) << " ";
-        }
-        CCLOG("LevelConfigLoader::loadLevelConfig - first %zu bytes hex: %s", n, oss.str().c_str());
-    }
-    else {
-        CCLOG("LevelConfigLoader::loadLevelConfig - file content is empty: %s", filePath.c_str());
+    if (content.empty()) {
         return config;
     }
 
-    // 3) 先尝试使用 cocos2d 的 ValueMap 解析（原有方式）
-    ValueMap root = fileUtils->getValueMapFromFile(filePath);
-    if (root.empty()) {
-        CCLOG("LevelConfigLoader::loadLevelConfig - parsed ValueMap is empty or parse failed: %s", filePath.c_str());
+    // rapidjson 解析
+    rapidjson::Document d;
+    d.Parse(content.c_str());
+    if (d.HasParseError()) {
+        // 解析失败则返回默认 config（不打印诊断信息）
+        return config;
+    }
 
-        // 3a) 再尝试 ValueVector，看是否文件顶层是数组（防止格式误差）
-        ValueVector vv = fileUtils->getValueVectorFromFile(filePath);
-        if (!vv.empty()) {
-            CCLOG("LevelConfigLoader::loadLevelConfig - file parsed as ValueVector (size=%zu). Possibly JSON top-level is an array.", vv.size());
-            // 如果你的 JSON 真的是数组形式，这里可以调整后续解析逻辑
+    // 将 Document 转换为 ValueMap；如果根是数组则按兼容性放到 Playfield
+    ValueMap root;
+    if (d.IsObject()) {
+        Value vroot = rapidjsonValueToCocosValue(d);
+        if (vroot.getType() == Value::Type::MAP) {
+            root = vroot.asValueMap();
         }
         else {
-            CCLOG("LevelConfigLoader::loadLevelConfig - ValueVector also empty. Will try rapidjson parse to get detailed error info.");
-
-            // 3b) 用 rapidjson 直接解析字符串，并在成功时把 Document 转换为 cocos2d::ValueMap
-            rapidjson::Document d;
-            d.Parse(content.c_str());
-            if (d.HasParseError()) {
-                auto err = d.GetParseError();
-                size_t offset = static_cast<size_t>(d.GetErrorOffset());
-                CCLOG("LevelConfigLoader::loadLevelConfig - rapidjson parse error: %s at offset %zu", rapidjson::GetParseError_En(err), offset);
-                size_t start = (offset > 40) ? (offset - 40) : 0;
-                size_t end = std::min(content.size(), offset + 40);
-                std::string contextSnippet = content.substr(start, end - start);
-                CCLOG("LevelConfigLoader::loadLevelConfig - context around error (offset %zu): %.200s", offset, contextSnippet.c_str());
-            }
-            else {
-                CCLOG("LevelConfigLoader::loadLevelConfig - rapidjson parse succeeded (but ValueMapFromFile earlier failed). Document type = %d", d.GetType());
-
-                if (d.IsObject()) {
-                    try {
-                        Value vroot = rapidjsonValueToCocosValue(d);
-                        if (vroot.getType() == Value::Type::MAP) {
-                            root = vroot.asValueMap();
-                            CCLOG("LevelConfigLoader::loadLevelConfig - converted rapidjson Document to ValueMap successfully.");
-                        }
-                        else {
-                            CCLOG("LevelConfigLoader::loadLevelConfig - rapidjson root is object but conversion produced non-map Value (type=%d)", vroot.getType());
-                        }
-                    }
-                    catch (const std::exception& ex) {
-                        CCLOG("LevelConfigLoader::loadLevelConfig - exception during rapidjson->Value conversion: %s", ex.what());
-                    }
-                }
-                else {
-                    CCLOG("LevelConfigLoader::loadLevelConfig - rapidjson root is not an object (type=%d).", d.GetType());
-                }
-            }
+            return config;
         }
     }
-
-    if (root.empty()) {
-        CCLOG("LevelConfigLoader::loadLevelConfig - final root is empty, aborting parse for: %s", filePath.c_str());
+    else if (d.IsArray()) {
+        ValueVector vv = rapidjsonArrayToValueVector(d);
+        root["Playfield"] = Value(vv);
+    }
+    else {
         return config;
     }
 
-    // 解析 Playfield（如果存在且为数组）
+    if (root.empty()) {
+        return config;
+    }
+
+    // 解析 Playfield（存在且为数组时）
     auto it = root.find("Playfield");
     if (it != root.end() && it->second.getType() == Value::Type::VECTOR) {
         config.setPlayfieldConfig(parseCardPile(it->second.asValueVector()));
     }
-    else {
-        CCLOG("LevelConfigLoader::loadLevelConfig - Playfield missing or not an array in %s", filePath.c_str());
-    }
 
-    // 解析 Stack（如果存在且为数组）
+    // 解析 Stack（存在且为数组时）
     it = root.find("Stack");
     if (it != root.end() && it->second.getType() == Value::Type::VECTOR) {
         config.setStackConfig(parseCardPile(it->second.asValueVector()));
-    }
-    else {
-        CCLOG("LevelConfigLoader::loadLevelConfig - Stack missing or not an array in %s", filePath.c_str());
     }
 
     return config;
 }
 
+// 将 ValueVector 转为 CardPileConfig（保持原有逻辑）
 CardPileConfig LevelConfigLoader::parseCardPile(const cocos2d::ValueVector& pileArray)
 {
     CardPileConfig pileConfig;
@@ -198,12 +176,13 @@ CardPileConfig LevelConfigLoader::parseCardPile(const cocos2d::ValueVector& pile
             pileConfig.cards.push_back(card);
         }
         else {
-            CCLOG("LevelConfigLoader::parseCardPile - skipping non-object entry in pile array");
+            // 跳过非对象项
         }
     }
     return pileConfig;
 }
 
+// 将单张卡的 ValueMap 转为 CardConfig（保持原有逻辑）
 CardConfig LevelConfigLoader::parseCard(const cocos2d::ValueMap& cardMap)
 {
     CardConfig card;
@@ -217,17 +196,11 @@ CardConfig LevelConfigLoader::parseCard(const cocos2d::ValueMap& cardMap)
     if (it != cardMap.end() && it->second.getType() == cocos2d::Value::Type::INTEGER) {
         card.suit = static_cast<CardSuitType>(it->second.asInt());
     }
-    else {
-        CCLOG("LevelConfigLoader::parseCard - CardSuit missing or wrong type; using CST_NONE");
-    }
 
     // CardFace
     it = cardMap.find("CardFace");
     if (it != cardMap.end() && it->second.getType() == cocos2d::Value::Type::INTEGER) {
         card.face = static_cast<CardFaceType>(it->second.asInt());
-    }
-    else {
-        CCLOG("LevelConfigLoader::parseCard - CardFace missing or wrong type; using CFT_NONE");
     }
 
     // Position { x, y }
@@ -238,17 +211,11 @@ CardConfig LevelConfigLoader::parseCard(const cocos2d::ValueMap& cardMap)
         if (pit != posMap.end() && (pit->second.getType() == cocos2d::Value::Type::FLOAT || pit->second.getType() == cocos2d::Value::Type::INTEGER)) {
             card.position.x = pit->second.asFloat();
         }
-        else {
-            CCLOG("LevelConfigLoader::parseCard - Position.x missing or wrong type; using 0");
-        }
         pit = posMap.find("y");
         if (pit != posMap.end() && (pit->second.getType() == cocos2d::Value::Type::FLOAT || pit->second.getType() == cocos2d::Value::Type::INTEGER)) {
             card.position.y = pit->second.asFloat();
         }
-        else {
-            CCLOG("LevelConfigLoader::parseCard - Position.y missing or wrong type; using 0");
-        }
-    } // 否则保持默认 Vec2::ZERO
+    }
 
     return card;
 }
