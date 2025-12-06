@@ -185,7 +185,7 @@ Node* CardView::createFrontNode(CardFaceType faceType, CardSuitType suitType)
         // 作为回退，用文字 label（不常见）
         bigNum = Sprite::create();
     }
-    bigNum->setPosition(bgSize.width * 0.5f, bgSize.height * 0.55f);
+    bigNum->setPosition(0,0);
     front->addChild(bigNum);
 
     // 左上小数字
@@ -200,10 +200,8 @@ Node* CardView::createFrontNode(CardFaceType faceType, CardSuitType suitType)
         }
     }
     if (!smallNum) smallNum = Sprite::create();
-    // 放置在左上角，向内偏移 8px
-    float offset = 8.0f;
     smallNum->setAnchorPoint(Vec2(0, 1)); // 左上为锚点
-    smallNum->setPosition(Vec2(offset, bgSize.height - offset));
+    smallNum->setPosition(-bgSize.width*0.45f, bgSize.height*0.45f);
     front->addChild(smallNum);
 
     // 右上花色图标
@@ -219,7 +217,7 @@ Node* CardView::createFrontNode(CardFaceType faceType, CardSuitType suitType)
     }
     if (!suitSp) suitSp = Sprite::create();
     suitSp->setAnchorPoint(Vec2(1, 1)); // 右上锚点
-    suitSp->setPosition(Vec2(bgSize.width - offset, bgSize.height - offset));
+    suitSp->setPosition(bgSize.width * 0.45f, bgSize.height * 0.45f);
     front->addChild(suitSp);
 
     // 把 bg 置为 front 的第一个子节点（已添加），并将 front 的 contentSize 与 bg 一致
