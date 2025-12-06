@@ -174,6 +174,16 @@ void GameController::handlePlayfieldCardClick(int cardId)
     animatePlayfieldCardToHand(playIndex, cardId);
 }
 
+/*
+  变更说明（仅修改本文件中的两个动画函数）：
+  - 原来直接把 targetPos（design-space）传入 view->playMoveAnimation，产生坐标系不匹配的问题。
+  - 现在做三步变换：
+      1) 把 design-space targetPos（这里是相对于 _parentNode 的设计坐标）转换为 world 坐标：worldTarget
+      2) 把 worldTarget 转换为 card 当前 parent 的本地坐标 localTargetForCurrentParent，用于动画
+      3) 动画完成后更新 model，并将 card view reparent 到 _handNode（如需），最后把位置设置为 handNode 的本地坐标（通过 convertToNodeSpace(worldTarget)）
+  - 这样能保证动画轨迹在父节点不同的情况下仍然正确。
+*/
+
 void GameController::animatePlayfieldCardToHand(int playfieldIndex, int cardId)
 {
     auto it = _cardViews.find(cardId);
@@ -184,15 +194,31 @@ void GameController::animatePlayfieldCardToHand(int playfieldIndex, int cardId)
     }
     CardView* view = it->second;
 
-    // 目标位置：hand 顶部或默认位置
+    // 目标位置：hand 顶部或默认位置（design-space，假定相对于 _parentNode）
     Vec2 targetPos = _defaultHandPosition;
     const auto& hand = _gameModel.getHandCards();
     if (!hand.empty()) {
         targetPos = hand.back()->getPosition();
     }
 
-    view->playMoveAnimation(targetPos, _moveDuration, [this, playfieldIndex, cardId, targetPos]() {
-        // 更新 model：把 playfield 卡移入 hand（model 方法名为 movePlayfieldCardToHand）
+    // 将 design-space (parentNode) 坐标转为 world 坐标
+    Vec2 worldTarget = targetPos;
+    if (_parentNode) {
+        worldTarget = _parentNode->convertToWorldSpace(targetPos);
+    }
+
+    // 将 worldTarget 转为 card 当前父节点的本地坐标（动画在当前父节点坐标系中执行）
+    Node* currentParent = view->getParent();
+    if (!currentParent) {
+        CCLOG("GameController::animatePlayfieldCardToHand - view has no parent, aborting");
+        _busy = false;
+        return;
+    }
+    Vec2 localTargetForCurrentParent = currentParent->convertToNodeSpace(worldTarget);
+
+    // 播放移动动画（在当前 parent 的坐标系内移动）
+    view->playMoveAnimation(localTargetForCurrentParent, _moveDuration, [this, playfieldIndex, cardId, worldTarget, targetPos]() {
+        // 在动画完成时，先更新 model（将 playfield -> hand）
         bool ok = _gameModel.movePlayfieldCardToHand(playfieldIndex);
         if (!ok) {
             CCLOG("GameController::animatePlayfieldCardToHand - model move failed for id %d", cardId);
@@ -200,20 +226,34 @@ void GameController::animatePlayfieldCardToHand(int playfieldIndex, int cardId)
             return;
         }
 
-        // 更新被移动卡的 model 属性（位置/翻开）
-        if (!_gameModel.getStackCards().empty()) {
-            auto moved = _gameModel.getStackCards().back();
-            moved->setPosition(targetPos);
-            moved->setFaceUp(true);
+        // 获取被移动的 card（现在应该是 hand 的最后一张）
+        const auto& handRef = _gameModel.getHandCards();
+        if (handRef.empty()) {
+            CCLOG("GameController::animatePlayfieldCardToHand - model reports empty hand after move (cardId=%d)", cardId);
+            _busy = false;
+            return;
+        }
+        auto moved = handRef.back();
+        if (!moved) {
+            CCLOG("GameController::animatePlayfieldCardToHand - moved card ptr null (cardId=%d)", cardId);
+            _busy = false;
+            return;
+        }
+        // 更新 model 中的位置/状态为 design-space 的目标
+        moved->setPosition(targetPos);
+        moved->setFaceUp(true);
 
-            // 更新对应的 CardView：从 playfieldNode 移动到 handNode
-            auto itv = _cardViews.find(moved->getId());
-            if (itv != _cardViews.end()) {
-                CardView* v = itv->second;
-                if (v->getParent() == _playfieldNode) {
+        // 更新对应的 CardView：reparent 到 handNode，并把位置设置为 handNode 的本地坐标
+        auto itv = _cardViews.find(moved->getId());
+        if (itv != _cardViews.end()) {
+            CardView* v = itv->second;
+            if (v) {
+                Vec2 handLocal = _handNode ? _handNode->convertToNodeSpace(worldTarget) : worldTarget;
+                if (v->getParent() != _handNode) {
                     v->removeFromParent();
-                    _handNode->addChild(v);
+                    if (_handNode) _handNode->addChild(v);
                 }
+                v->setPosition(handLocal);
                 v->setCardVisible(true);
             }
         }
@@ -264,14 +304,30 @@ void GameController::animateReserveTopToHand()
     }
     CardView* view = it->second;
 
-    // 目标位置：hand 顶部或默认位置
+    // 目标位置：hand 顶部或默认位置（design-space，假定相对于 _parentNode）
     Vec2 targetPos = _defaultHandPosition;
     const auto& hand = _gameModel.getHandCards();
     if (!hand.empty()) {
         targetPos = hand.back()->getPosition();
     }
 
-    view->playMoveAnimation(targetPos, _moveDuration, [this, cardId, targetPos]() {
+    // 将 design-space (parentNode) 坐标转为 world 坐标
+    Vec2 worldTarget = targetPos;
+    if (_parentNode) {
+        worldTarget = _parentNode->convertToWorldSpace(targetPos);
+    }
+
+    // 将 worldTarget 转为 card 当前父节点的本地坐标（动画在当前父节点坐标系中执行）
+    Node* currentParent = view->getParent();
+    if (!currentParent) {
+        CCLOG("GameController::animateReserveTopToHand - view has no parent, aborting");
+        _busy = false;
+        return;
+    }
+    Vec2 localTargetForCurrentParent = currentParent->convertToNodeSpace(worldTarget);
+
+    // 播放移动动画（在当前 parent 的坐标系内移动）
+    view->playMoveAnimation(localTargetForCurrentParent, _moveDuration, [this, cardId, worldTarget, targetPos]() {
         // 更新 model：从 reserve 抽取到 hand（使用 drawReserveToHand）
         bool ok = _gameModel.drawReserveToHand();
         if (!ok) {
@@ -290,11 +346,15 @@ void GameController::animateReserveTopToHand()
             auto itv = _cardViews.find(moved->getId());
             if (itv != _cardViews.end()) {
                 CardView* v = itv->second;
-                if (v->getParent() == _reserveNode) {
-                    v->removeFromParent();
-                    _handNode->addChild(v);
+                if (v) {
+                    Vec2 handLocal = _handNode ? _handNode->convertToNodeSpace(worldTarget) : worldTarget;
+                    if (v->getParent() != _handNode) {
+                        v->removeFromParent();
+                        if (_handNode) _handNode->addChild(v);
+                    }
+                    v->setPosition(handLocal);
+                    v->setCardVisible(true);
                 }
-                v->setCardVisible(true);
             }
         }
 
