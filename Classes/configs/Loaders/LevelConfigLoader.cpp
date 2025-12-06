@@ -102,7 +102,7 @@ static Value rapidjsonValueToCocosValue(const rapidjson::Value& rv) {
     return Value();
 }
 
-// 直接使用 rapidjson 解析并构建 LevelConfig，不输出诊断日志
+// 直接使用 rapidjson 解析并构建 LevelConfig
 LevelConfig LevelConfigLoader::loadLevelConfig(const std::string& levelId)
 {
     LevelConfig config;
