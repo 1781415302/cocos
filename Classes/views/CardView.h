@@ -13,78 +13,56 @@ class CardModel;
 
 /**
  * @brief 卡牌视图
- * @details 负责显示卡牌图片并处理交互回调，具体业务由 Controller 处理
+ * @details 卡牌视图负责呈现一张牌的正/背面、触摸、移动动画等
  */
 class CardView : public cocos2d::Node
 {
 public:
-    /**
-     * @brief 创建 CardView（使用 shared_ptr<CardModel>）
-     * @param cardModel 共享的卡牌模型
-     */
     static CardView* create(const std::shared_ptr<CardModel>& cardModel);
 
-    /**
-     * @brief 初始化
-     */
     bool init(const std::shared_ptr<CardModel>& cardModel);
 
-    /**
-     * @brief 设置正面/背面显示
-     */
+    // 切换显示正/背面（animate=true 做简单翻转动画）
+    void setFaceUp(bool faceUp, bool animate = true);
+    bool isFaceUp() const;
+
+    // 兼容旧接口：根据模型状态显示/隐藏（仍保留）
     void setCardVisible(bool visible);
 
-    /**
-     * @brief 获取卡牌 ID
-     */
     int getCardId() const;
-
-    /**
-     * @brief 获取卡牌点数
-     */
     CardFaceType getCardFace() const;
-
-    /**
-     * @brief 获取卡牌花色
-     */
     CardSuitType getCardSuit() const;
-
-    /**
-     * @brief 当前节点位置
-     */
     cocos2d::Vec2 getCurrentPosition() const;
 
-    /**
-     * @brief 播放移动动画
-     */
     void playMoveAnimation(cocos2d::Vec2 targetPos, float duration, std::function<void()> completionCallback = nullptr);
-
-    /**
-     * @brief 播放反向移动动画（目前直接同 playMoveAnimation）
-     */
     void playReverseMoveAnimation(cocos2d::Vec2 targetPos, float duration, std::function<void()> completionCallback = nullptr);
 
-    /**
-     * @brief 设置点击回调（传出 cardId）
-     */
     void setClickCallback(std::function<void(int)> callback);
 
 private:
-    // 使用 weak_ptr 持有模型，避免视图持有强引用或悬挂裸指针
-    std::weak_ptr<CardModel> _cardModel; ///< 指向模型的弱引用
-    cocos2d::Sprite* _frontSprite = nullptr; ///< 正面图片
-    cocos2d::Sprite* _backSprite = nullptr; ///< 背面图片
-    std::function<void(int)> _clickCallback; ///< 点击回调
+    // weak_ptr 避免生命周期依赖
+    std::weak_ptr<CardModel> _cardModel;
+    cocos2d::Node* _frontNode = nullptr; ///< 正面（compound node）
+    cocos2d::Sprite* _backSprite = nullptr; ///< 背面精灵
+    std::function<void(int)> _clickCallback;
 
-    // 辅助函数
-    cocos2d::Sprite* loadCardSprite(CardFaceType faceType, CardSuitType suitType);
+    bool _isFaceUp = false;
+
+    // 创建正面组合视图（background + big number + small number + suit）
+    cocos2d::Node* createFrontNode(CardFaceType faceType, CardSuitType suitType);
+
+    // 资源文件名生成
+    std::string bigNumberFilename(CardFaceType face, CardSuitType suit) const;
+    std::string smallNumberFilename(CardFaceType face, CardSuitType suit) const;
+    std::string suitFilename(CardSuitType suit) const;
+    std::string cardBackFilename() const;
+    std::string cardGeneralFilename() const;
 
     // 触摸回调
     bool onTouchBegan(cocos2d::Touch* touch, cocos2d::Event* event);
     void onTouchEnded(cocos2d::Touch* touch, cocos2d::Event* event);
     void onTouchCancelled(cocos2d::Touch* touch, cocos2d::Event* event);
 
-    // 节点退出回调（用于移除监听器）
     virtual void onExit() override;
 };
 
