@@ -6,6 +6,7 @@
 #include "models/CardModel.h"
 #include "utils/CardEnums.h"
 #include <cassert>
+#include <algorithm>
 
 using namespace cocos2d;
 
@@ -14,7 +15,7 @@ GameController::GameController(Node* parentNode)
 {
     assert(parentNode && "GameController requires a valid parent node");
 
-    // 创建三个子节点并 attach 到 parent
+    // 创建 playfield / reserve / hand node 并 attach 到 parent（用于 ZOrder 控制）
     _playfieldNode = Node::create();
     _reserveNode = Node::create();
     _handNode = Node::create();
@@ -23,7 +24,6 @@ GameController::GameController(Node* parentNode)
     _reserveNode->setName("reserve_node");
     _handNode->setName("hand_node");
 
-    // ZOrder: playfield 最下, reserve 中间, hand 最上
     _parentNode->addChild(_playfieldNode, 0);
     _parentNode->addChild(_reserveNode, 5);
     _parentNode->addChild(_handNode, 10);
@@ -44,11 +44,14 @@ void GameController::startGame(const std::string& levelId)
     // 1) 读取关卡配置
     LevelConfig config = LevelConfigLoader::loadLevelConfig(levelId);
 
-    // 2) 生成游戏 model（playfield/reserve/hand）
+    // 2) 生成 model
     _gameModel = GameModelFromLevelGenerator::generateGameModel(config);
 
-    // 3) 根据 model 创建视图 CardView
+    // 3) 由 model 创建 view
     createViewsFromModel();
+
+    // 4) 开局自动从 reserve 翻一张牌到 hand（无动画）
+    drawInitialReserveTopToHand(false);
 }
 
 void GameController::createViewsFromModel()
@@ -68,11 +71,14 @@ void GameController::createViewsFromModel()
             this->handlePlayfieldCardClick(cardId);
             });
 
-        // front/back 显示
-        v->setCardVisible(cardPtr->isFaceUp());
+        // 先用 model 的状态做基础设置（无动画）
+        v->setFaceUp(cardPtr->isFaceUp(), false);
     }
 
-    // Reserve（备用牌），显示为背面或正面由 model 中的 isFaceUp 决定
+    // 所有 playfield CardView 创建并 addChild 后，基于真实边界判定被覆盖的牌
+    updatePlayfieldCoverage(/*overlapAreaThreshold=*/0.0f);
+
+    // Reserve
     const auto& reserve = _gameModel.getReserveCards();
     for (size_t i = 0; i < reserve.size(); ++i) {
         auto cardPtr = reserve[i];
@@ -83,16 +89,14 @@ void GameController::createViewsFromModel()
         _reserveNode->addChild(v);
         _cardViews[cardPtr->getId()] = v;
 
-        // reserve 的点击行为为 draw（不传 card id）
         v->setClickCallback([this](int /*cardId*/) {
             this->handleReserveClick();
             });
 
-        // 使用 model 的 isFaceUp 来决定显示（现在 reserve 初始为背面，除非被翻到 hand）
         v->setCardVisible(cardPtr->isFaceUp());
     }
 
-    // Hand 区
+    // Hand
     const auto& hand = _gameModel.getHandCards();
     for (size_t i = 0; i < hand.size(); ++i) {
         auto cardPtr = hand[i];
@@ -102,13 +106,139 @@ void GameController::createViewsFromModel()
         _handNode->addChild(v);
         _cardViews[cardPtr->getId()] = v;
 
-        // hand 的点击当前为 no-op
         v->setClickCallback([this](int /*cardId*/) {
             // no-op
             });
 
         v->setCardVisible(cardPtr->isFaceUp());
     }
+}
+
+/**
+ * 根据当前 playfield 中 CardView 的真实边界（相对于 _playfieldNode）判断覆盖关系，并同步 model/view。
+ */
+void GameController::updatePlayfieldCoverage(float overlapAreaThreshold)
+{
+    const auto& playfield = _gameModel.getPlayfieldCards();
+    const size_t n = playfield.size();
+    if (n == 0) return;
+
+    auto rectInPlayfield = [this](CardView* v) -> Rect {
+        if (!v) return Rect::ZERO;
+        Rect b = v->getBoundingBox();
+        Node* parent = v->getParent();
+        if (!parent || !_playfieldNode) return b;
+
+        Vec2 originWorld = parent->convertToWorldSpace(Vec2(b.origin.x, b.origin.y));
+        Vec2 originInPlay = _playfieldNode->convertToNodeSpace(originWorld);
+        return Rect(originInPlay.x, originInPlay.y, b.size.width, b.size.height);
+        };
+
+    std::vector<Rect> rects;
+    rects.reserve(n);
+    for (size_t i = 0; i < n; ++i) {
+        auto cardPtr = playfield[i];
+        Rect r = Rect::ZERO;
+        if (cardPtr) {
+            auto it = _cardViews.find(cardPtr->getId());
+            if (it != _cardViews.end() && it->second) {
+                r = rectInPlayfield(it->second);
+            }
+        }
+        rects.push_back(r);
+    }
+
+    for (size_t i = 0; i < n; ++i) {
+        bool covered = false;
+        const Rect& a = rects[i];
+        if (!a.equals(Rect::ZERO)) {
+            for (size_t j = i + 1; j < n; ++j) {
+                const Rect& b = rects[j];
+                if (b.equals(Rect::ZERO)) continue;
+
+                float xi1 = std::max(a.getMinX(), b.getMinX());
+                float xi2 = std::min(a.getMaxX(), b.getMaxX());
+                float yi1 = std::max(a.getMinY(), b.getMinY());
+                float yi2 = std::min(a.getMaxY(), b.getMaxY());
+                if (xi2 > xi1 && yi2 > yi1) {
+                    float interArea = (xi2 - xi1) * (yi2 - yi1);
+                    if (interArea > overlapAreaThreshold) {
+                        covered = true;
+                        break;
+                    }
+                }
+            }
+        }
+        auto cardPtr = playfield[i];
+        if (cardPtr) {
+            cardPtr->setFaceUp(!covered);
+            auto itv = _cardViews.find(cardPtr->getId());
+            if (itv != _cardViews.end() && itv->second) {
+                itv->second->setFaceUp(!covered, false);
+            }
+        }
+    }
+}
+
+/**
+ * 在开局时自动从 reserve 翻一张牌到 hand。
+ * 如果 animate=true，会复用已有的 animateReserveTopToHand（有动画）。
+ * 默认 animate=false，立即无动画完成（更适合启动流程）。
+ */
+void GameController::drawInitialReserveTopToHand(bool animate)
+{
+    if (animate) {
+        // 复用已有动画函数
+        if (!_busy) {
+            _busy = true;
+            animateReserveTopToHand();
+            // animateReserveTopToHand 会在完成回调里把 _busy 置 false
+        }
+        return;
+    }
+
+    // 非动画路径：直接在 model 上执行 draw，并把对应 view reparent 到 hand
+    const auto& reserve = _gameModel.getReserveCards();
+    if (reserve.empty()) return;
+
+    bool ok = _gameModel.drawReserveToHand();
+    if (!ok) return;
+
+    const auto& handRef = _gameModel.getHandCards();
+    if (handRef.empty()) return;
+    auto moved = handRef.back();
+    if (!moved) return;
+
+    // 设置 model 的位置与状态（design-space）
+    Vec2 targetPos = _defaultHandPosition;
+    if (!handRef.empty() && handRef.size() > 1) {
+        // 如果 hand 原来有牌，叠放在最后一张位置
+        targetPos = handRef[handRef.size() - 2]->getPosition();
+    }
+    moved->setPosition(targetPos);
+    moved->setFaceUp(true);
+
+    // 将对应的 CardView reparent 到 handNode 并设置位置/显示
+    auto itv = _cardViews.find(moved->getId());
+    if (itv != _cardViews.end()) {
+        CardView* v = itv->second;
+        if (v) {
+            Vec2 worldTarget = targetPos;
+            if (_parentNode) {
+                worldTarget = _parentNode->convertToWorldSpace(targetPos);
+            }
+            Vec2 handLocal = _handNode ? _handNode->convertToNodeSpace(worldTarget) : worldTarget;
+            if (v->getParent() != _handNode) {
+                v->removeFromParent();
+                if (_handNode) _handNode->addChild(v);
+            }
+            v->setPosition(handLocal);
+            v->setCardVisible(true);
+        }
+    }
+
+    // 开局 draw 不直接影响 playfield 覆盖（通常），但调用以保证状态一致
+    updatePlayfieldCoverage(/*overlapAreaThreshold=*/0.0f);
 }
 
 int GameController::findPlayfieldIndexByCardId(int cardId) const
@@ -155,7 +285,7 @@ void GameController::handlePlayfieldCardClick(int cardId)
         return;
     }
 
-    // 确认 hand (堆顶) 有牌并是可匹配状态
+    // 确认 hand (手牌) 是否允许匹配
     if (!_gameModel.canMatchWithHandTop()) {
         CCLOG("GameController::handlePlayfieldCardClick - no matching hand top");
         return;
@@ -169,14 +299,10 @@ void GameController::handlePlayfieldCardClick(int cardId)
         return;
     }
 
-    // 通过动画把 playfield 卡移到 hand
+    // 开始动画把 playfield 卡到 hand
     _busy = true;
     animatePlayfieldCardToHand(playIndex, cardId);
 }
-
-/*
-  说明动画相关处理（保持原注释不变）
-*/
 
 void GameController::animatePlayfieldCardToHand(int playfieldIndex, int cardId)
 {
@@ -188,7 +314,7 @@ void GameController::animatePlayfieldCardToHand(int playfieldIndex, int cardId)
     }
     CardView* view = it->second;
 
-    // 目标位置，hand 的默认位置或手牌最后一张的位置
+    // 目标位置（hand 的默认位置或手牌末尾）
     Vec2 targetPos = _defaultHandPosition;
     const auto& hand = _gameModel.getHandCards();
     if (!hand.empty()) {
@@ -201,7 +327,7 @@ void GameController::animatePlayfieldCardToHand(int playfieldIndex, int cardId)
         worldTarget = _parentNode->convertToWorldSpace(targetPos);
     }
 
-    // world -> view 当前 parent 的 local
+    // world -> view 当前 parent 的本地坐标
     Node* currentParent = view->getParent();
     if (!currentParent) {
         CCLOG("GameController::animatePlayfieldCardToHand - view has no parent, aborting");
@@ -210,9 +336,9 @@ void GameController::animatePlayfieldCardToHand(int playfieldIndex, int cardId)
     }
     Vec2 localTargetForCurrentParent = currentParent->convertToNodeSpace(worldTarget);
 
-    // 播放移动动画（在当前 parent 下）
+    // 执行动画
     view->playMoveAnimation(localTargetForCurrentParent, _moveDuration, [this, playfieldIndex, cardId, worldTarget, targetPos]() {
-        // 第二阶段回调：更新 model：playfield -> hand
+        // 动画完成后把 model 中的 playfield 卡移动到 hand
         bool ok = _gameModel.movePlayfieldCardToHand(playfieldIndex);
         if (!ok) {
             CCLOG("GameController::animatePlayfieldCardToHand - model move failed for id %d", cardId);
@@ -220,7 +346,7 @@ void GameController::animatePlayfieldCardToHand(int playfieldIndex, int cardId)
             return;
         }
 
-        // 获取被移动的 card（model）
+        // 从 model 取到移动的卡并更新其 position/status
         const auto& handRef = _gameModel.getHandCards();
         if (handRef.empty()) {
             CCLOG("GameController::animatePlayfieldCardToHand - model reports empty hand after move (cardId=%d)", cardId);
@@ -233,11 +359,10 @@ void GameController::animatePlayfieldCardToHand(int playfieldIndex, int cardId)
             _busy = false;
             return;
         }
-        // 将 model 的位置/状态设置为 design-space 目标
         moved->setPosition(targetPos);
         moved->setFaceUp(true);
 
-        // 更新对应的 CardView：reparent 到 handNode 并设置位置/可见性
+        // view reparent 到 handNode 并更新显示
         auto itv = _cardViews.find(moved->getId());
         if (itv != _cardViews.end()) {
             CardView* v = itv->second;
@@ -252,6 +377,9 @@ void GameController::animatePlayfieldCardToHand(int playfieldIndex, int cardId)
             }
         }
 
+        // 由于 playfield 内容发生变化（一张牌被拿走），更新 playfield 覆盖状态
+        updatePlayfieldCoverage(/*overlapAreaThreshold=*/0.0f);
+
         _busy = false;
         });
 }
@@ -263,21 +391,18 @@ void GameController::handleReserveClick()
         return;
     }
 
-    // 检查 reserve 是否为空
     const auto& reserve = _gameModel.getReserveCards();
     if (reserve.empty()) {
         CCLOG("GameController::handleReserveClick - reserve empty");
         return;
     }
 
-    // 执行抽牌动作（动画/模型会在 animateReserveTopToHand 里完成）
     _busy = true;
     animateReserveTopToHand();
 }
 
 void GameController::animateReserveTopToHand()
 {
-    // 取 reserve 的 back（顶部）牌
     const auto& reserve = _gameModel.getReserveCards();
     if (reserve.empty()) {
         _busy = false;
@@ -298,20 +423,17 @@ void GameController::animateReserveTopToHand()
     }
     CardView* view = it->second;
 
-    // 目标位置，hand 的默认位置或手牌最后一张的位置
     Vec2 targetPos = _defaultHandPosition;
     const auto& hand = _gameModel.getHandCards();
     if (!hand.empty()) {
         targetPos = hand.back()->getPosition();
     }
 
-    // design-space -> world
     Vec2 worldTarget = targetPos;
     if (_parentNode) {
         worldTarget = _parentNode->convertToWorldSpace(targetPos);
     }
 
-    // world -> card 当前 parent 的 local
     Node* currentParent = view->getParent();
     if (!currentParent) {
         CCLOG("GameController::animateReserveTopToHand - view has no parent, aborting");
@@ -320,9 +442,7 @@ void GameController::animateReserveTopToHand()
     }
     Vec2 localTargetForCurrentParent = currentParent->convertToNodeSpace(worldTarget);
 
-    // 播放移动动画
     view->playMoveAnimation(localTargetForCurrentParent, _moveDuration, [this, cardId, worldTarget, targetPos]() {
-        // 模型层执行 draw（reserve -> hand）
         bool ok = _gameModel.drawReserveToHand();
         if (!ok) {
             CCLOG("GameController::animateReserveTopToHand - model draw failed for id %d", cardId);
@@ -330,7 +450,6 @@ void GameController::animateReserveTopToHand()
             return;
         }
 
-        // 从 model 中获取被移动的 card 并更新 view（reparent 到 handNode）
         const auto& handRef = _gameModel.getHandCards();
         if (!handRef.empty()) {
             auto moved = handRef.back();
@@ -352,6 +471,7 @@ void GameController::animateReserveTopToHand()
             }
         }
 
+        // reserve -> hand 不影响 playfield 覆盖（通常），如果你的逻辑会影响，请在此调用 updatePlayfieldCoverage
         _busy = false;
         });
 }
@@ -363,14 +483,14 @@ void GameController::handleUndo()
 
 void GameController::reset()
 {
-    // 移除所有 views
+    // remove views
     for (auto& kv : _cardViews) {
         CardView* v = kv.second;
         if (v && v->getParent()) v->removeFromParent();
     }
     _cardViews.clear();
 
-    // 重置 model
+    // reset model
     _gameModel = GameModel();
     _busy = false;
 }

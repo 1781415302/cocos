@@ -15,69 +15,70 @@
  * GameController (without Undo)
  *
  * 说明：
- * - 该类负责初始化关卡、创建视图、处理三大区域的交互：
- *     - Playfield (主牌区)
- *     - Reserve  (备用牌堆，可点击抽牌)
- *     - Hand     (底牌堆，用于匹配)
- * - 动画期间会将 _busy 设为 true，避免重复交互。
+ * - 负责把 level 配置创建成 view + model
+ * - Playfield / Reserve / Hand 的管理
  */
-    class GameController
+class GameController
 {
 public:
     explicit GameController(cocos2d::Node* parentNode);
     ~GameController();
 
-    // 启动关卡（resources/levels/<levelId>.json）
+    // 开始指定关卡
     void startGame(const std::string& levelId);
 
-    // CardView 的 playfield 点击回调
+    // CardView 在 playfield 的点击处理
     void handlePlayfieldCardClick(int cardId);
 
-    // Reserve 区点击（通常是点备用牌堆的顶部卡）
+    // Reserve 区点击（抽牌）
     void handleReserveClick();
 
-    // 占位：撤销（后续实现）
+    // 撤销（未实现）
     void handleUndo();
 
-    // 清理/重置
+    // 重置 controller（删除 view、清 model）
     void reset();
 
 private:
-    // 根据 model 创建三个区域的 CardView
+    // 把 model -> view
     void createViewsFromModel();
 
-    // 查找 playfield/hand/reserve 中卡牌 index
+    // 更新 playfield/hand/reserve index 查找
     int findPlayfieldIndexByCardId(int cardId) const;
     int findReserveIndexByCardId(int cardId) const;
     int findHandIndexByCardId(int cardId) const;
 
-    // 判定两张牌点数是否相邻（只看点数）
+    // 点数相邻的判断（用于匹配）
     bool facesAreAdjacent(CardFaceType a, CardFaceType b) const;
 
-    // 执行动画并在回调中更新模型
+    // 动画移动 helpers
     void animatePlayfieldCardToHand(int playfieldIndex, int cardId);
-    void animateReserveTopToHand(); // 点击备用牌堆时调用
+    void animateReserveTopToHand();
+
+    // 新增：覆盖检测并同步 model/view
+    //  - 按 playfield 配置顺序（数组顺序）判断：若存在任意 index > i 的牌与 i 相交，
+    //    则 i 被覆盖（covered）。否则 i 翻开（exposed）。
+    //  - overlapAreaThreshold: 可选阈值（以像素面积计），用于忽略极小重叠
+    void updatePlayfieldCoverage(float overlapAreaThreshold = 0.0f);
+
+    // 新增：在开局时自动从 reserve 翻一张牌到 hand（animate=false 表示无动画、立即生效）
+    void drawInitialReserveTopToHand(bool animate = false);
 
 private:
     cocos2d::Node* _parentNode = nullptr;
 
-    // 三个子区域节点，便于管理 ZOrder 与布局
     cocos2d::Node* _playfieldNode = nullptr;
     cocos2d::Node* _reserveNode = nullptr;
     cocos2d::Node* _handNode = nullptr;
 
     GameModel _gameModel;
 
-    // cardId -> CardView* 映射（CardView 由 Cocos 引用计数管理）
     std::unordered_map<int, CardView*> _cardViews;
 
-    // 动画中锁，避免并发操作
     bool _busy = false;
 
-    // 动画时间
     float _moveDuration = 0.28f;
 
-    // 当 hand 为空时的默认位置（可从 LevelConfig 中读取）
     cocos2d::Vec2 _defaultHandPosition = cocos2d::Vec2(540.0f, 200.0f);
 };
 

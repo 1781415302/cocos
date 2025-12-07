@@ -244,7 +244,7 @@ void CardView::setFaceUp(bool faceUp, bool animate)
     }
 
     // 通过缩放 X 轴实现翻转动画（1->0, 切换可见性, 0->1）
-    float half = 0.2f;
+    float half = 0.15f;
     auto shrink = ScaleTo::create(half, 0.0f, 1.0f);
     auto expand = ScaleTo::create(half, 1.0f, 1.0f);
     auto cb = CallFunc::create([this, faceUp]() {
