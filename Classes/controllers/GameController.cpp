@@ -39,16 +39,22 @@ GameController::GameController(Node* parentNode)
             this->handleUndo();
             });
 
-        // compute bottom-right position in design/visible coordinates
+        // compute bottom-right position in design/visible coordinates (world coords)
         Vec2 origin = Director::getInstance()->getVisibleOrigin();
         Size vs = Director::getInstance()->getVisibleSize();
         Size btnSz = _undoView->getButtonSize();
 
         float margin = 18.0f;
-        float x = origin.x + vs.width - margin - btnSz.width * 0.5f;
-        float y = origin.y + margin + btnSz.height * 0.5f;
+        // world position (relative to the visible origin)
+        float wx = origin.x + vs.width - margin - btnSz.width * 0.5f;
+        float wy = origin.y + margin + btnSz.height * 0.5f;
+        Vec2 worldPos(wx, wy);
 
-        _undoView->setPosition(Vec2(x, y));
+        // Convert world position into parent node's local coordinates so the button is placed correctly
+        Vec2 parentLocal = _parentNode ? _parentNode->convertToNodeSpace(worldPos) : worldPos;
+        _undoView->setPosition(parentLocal);
+
+        // add to parent with high z to be above everything else
         _parentNode->addChild(_undoView, 20);
     }
 }
