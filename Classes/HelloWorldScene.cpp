@@ -7,28 +7,55 @@ USING_NS_CC;
 
 Scene* HelloWorld::createScene()
 {
-    return HelloWorld::create();
+    // 默认进入 1 关
+    return HelloWorld::createSceneWithLevel("1");
+}
+
+Scene* HelloWorld::createSceneWithLevel(const std::string& levelId)
+{
+    auto scene = HelloWorld::createWithLevel(levelId);
+    return scene;
+}
+
+HelloWorld* HelloWorld::createWithLevel(const std::string& levelId)
+{
+    HelloWorld* ret = new (std::nothrow) HelloWorld();
+    if (ret && ret->initWithLevel(levelId))
+    {
+        ret->autorelease();
+        return ret;
+    }
+    CC_SAFE_DELETE(ret);
+    return nullptr;
 }
 
 bool HelloWorld::init()
+{
+    // 兼容原有入口，默认加载 1 关
+    return initWithLevel("1");
+}
+
+bool HelloWorld::initWithLevel(const std::string& levelId)
 {
     if (!Scene::init()) {
         return false;
     }
 
+    _levelId = levelId;
+
     auto visibleSize = Director::getInstance()->getVisibleSize();
     Vec2 origin = Director::getInstance()->getVisibleOrigin();
 
-    // 背景色（可选）
+    // 背景色层
     auto layerColor = LayerColor::create(Color4B(25, 100, 25, 255));
     this->addChild(layerColor, -1);
 
-    // 顶部标题，便于调试
+    // 标题
     auto label = Label::createWithSystemFont("Card Game Demo", "Arial", 28);
     label->setPosition(origin + Vec2(visibleSize.width * 0.5f, visibleSize.height - 30));
     this->addChild(label, 1000);
 
-    // 退出按钮（方便 PC 平台测试）
+    // 退出按钮（PC 平台可用）
     auto closeItem = ui::Button::create();
     closeItem->setTitleText("Quit");
     closeItem->setTitleFontSize(20);
@@ -38,25 +65,22 @@ bool HelloWorld::init()
         });
     this->addChild(closeItem, 1000);
 
-    // 创建一个用于放置游戏节点的 parent node（传入 GameController）
+    // GameController 的父节点
     _gameParentNode = Node::create();
-    // 你可以调整位置 / 缩放 / anchor 来匹配你的布局
-    _gameParentNode->setPosition(origin + Vec2(10, 10)); // 留点边距
+    _gameParentNode->setPosition(origin + Vec2(10, 10)); // 简单边距
     this->addChild(_gameParentNode, 0);
 
-    // 创建 GameController，传入 parent node
+    // 创建 GameController
     _gameController = new GameController(_gameParentNode);
 
-    // 启动关卡（示例使用 "1"）
-    // 注意：确保 Resources/levels/1.json 存在且路径正确
-    _gameController->startGame("1");
+    // 按传入的关卡 ID 启动游戏
+    _gameController->startGame(_levelId);
 
     return true;
 }
 
 void HelloWorld::onExit()
 {
-    // 删除 GameController（如果有必要）
     if (_gameController) {
         delete _gameController;
         _gameController = nullptr;

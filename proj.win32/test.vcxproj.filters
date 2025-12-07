@@ -66,6 +66,9 @@
     <ClCompile Include="..\Classes\controllers\GameController.cpp">
       <Filter>src\Controller</Filter>
     </ClCompile>
+    <ClCompile Include="..\Classes\LevelSelectScene.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="main.h">
@@ -104,6 +107,9 @@
     <ClInclude Include="..\Classes\controllers\GameController.h">
       <Filter>src\Controller</Filter>
     </ClInclude>
+    <ClInclude Include="..\Classes\LevelSelectScene.h">
+      <Filter>src</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="game.rc">
@@ -112,6 +118,9 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="..\Resources\levels\1.json">
+      <Filter>resource\levels</Filter>
+    </None>
+    <None Include="..\Resources\levels\2.json">
       <Filter>resource\levels</Filter>
     </None>
   </ItemGroup>
