@@ -52,8 +52,7 @@ bool GameModel::drawReserveToHand()
     auto cardPtr = _reserveCards.back();
     _reserveCards.pop_back();
 
-    // 将其放入 hand（尾部），并翻开
-    cardPtr->setFaceUp(true);
+    cardPtr->setFaceUp(true); // 抽到 hand 末尾，并翻开
     _handCards.push_back(cardPtr);
     return true;
 }
@@ -76,6 +75,23 @@ bool GameModel::movePlayfieldCardToHand(int playfieldIndex)
 
 bool GameModel::moveTopHandCardToPlayfieldAt(int playfieldIndex, Vec2 position, CardStatus status)
 {
+    // 默认 visible=true，faceUp 保持当前
+    if (_handCards.empty()) return false;
+    bool visible = true;
+    bool faceUp = _handCards.back()->isFaceUp();
+    return moveTopHandCardToPlayfieldAt(playfieldIndex, position, status, visible, faceUp);
+}
+
+bool GameModel::moveTopHandCardToPlayfieldAt(int playfieldIndex, Vec2 position, CardStatus status, bool visible)
+{
+    // faceUp 保持当前
+    if (_handCards.empty()) return false;
+    bool faceUp = _handCards.back()->isFaceUp();
+    return moveTopHandCardToPlayfieldAt(playfieldIndex, position, status, visible, faceUp);
+}
+
+bool GameModel::moveTopHandCardToPlayfieldAt(int playfieldIndex, Vec2 position, CardStatus status, bool visible, bool faceUp)
+{
     if (_handCards.empty()) return false;
 
     auto cardPtr = _handCards.back();
@@ -83,6 +99,8 @@ bool GameModel::moveTopHandCardToPlayfieldAt(int playfieldIndex, Vec2 position, 
 
     cardPtr->setPosition(position);
     cardPtr->setStatus(status);
+    cardPtr->setVisible(visible);
+    cardPtr->setFaceUp(faceUp);
 
     if (playfieldIndex < 0 || playfieldIndex > static_cast<int>(_playfieldCards.size())) {
         _playfieldCards.push_back(cardPtr);
@@ -97,6 +115,30 @@ bool GameModel::flipTopHandCard()
 {
     if (_handCards.empty()) return false;
     _handCards.back()->setFaceUp(true);
+    return true;
+}
+
+bool GameModel::moveTopHandCardBackToReserve(Vec2 position, CardStatus status, bool visible)
+{
+    // faceUp 保持当前
+    if (_handCards.empty()) return false;
+    bool faceUp = _handCards.back()->isFaceUp();
+    return moveTopHandCardBackToReserve(position, status, visible, faceUp);
+}
+
+bool GameModel::moveTopHandCardBackToReserve(Vec2 position, CardStatus status, bool visible, bool faceUp)
+{
+    if (_handCards.empty()) return false;
+
+    auto cardPtr = _handCards.back();
+    _handCards.pop_back();
+
+    cardPtr->setPosition(position);
+    cardPtr->setStatus(status);
+    cardPtr->setVisible(visible);
+    cardPtr->setFaceUp(faceUp);
+
+    _reserveCards.push_back(cardPtr); // 退回 reserve 尾部
     return true;
 }
 

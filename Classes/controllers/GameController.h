@@ -1,10 +1,10 @@
 #pragma once
-// Classes/controllers/GameController.h
 #ifndef GameController_h
 #define GameController_h
 
 #include "cocos2d.h"
 #include "models/GameModel.h"
+#include "models/UndoModel.h"
 #include "views/CardView.h"
 #include "configs/LevelConfig.h"
 #include <unordered_map>
@@ -12,11 +12,11 @@
 #include <string>
 
 /**
- * GameController (without Undo)
+ * GameController (with Undo)
  *
- * 说明：
- * - 负责把 level 配置创建成 view + model
- * - Playfield / Reserve / Hand 的管理
+ * Responsibilities:
+ * - Load level config, build view + model
+ * - Manage playfield / reserve / hand
  */
 class GameController
 {
@@ -24,44 +24,41 @@ public:
     explicit GameController(cocos2d::Node* parentNode);
     ~GameController();
 
-    // 开始指定关卡
+    // Start a specific level
     void startGame(const std::string& levelId);
 
-    // CardView 在 playfield 的点击处理
+    // Click handler for playfield card
     void handlePlayfieldCardClick(int cardId);
 
-    // Reserve 区点击（抽牌）
+    // Click handler for reserve stack
     void handleReserveClick();
 
-    // 撤销（未实现）
+    // Undo last action
     void handleUndo();
 
-    // 重置 controller（删除 view、清 model）
+    // Cleanup controller, remove views and reset model
     void reset();
 
 private:
-    // 把 model -> view
+    // Build views from model
     void createViewsFromModel();
 
-    // 更新 playfield/hand/reserve index 查找
+    // Index helpers
     int findPlayfieldIndexByCardId(int cardId) const;
     int findReserveIndexByCardId(int cardId) const;
     int findHandIndexByCardId(int cardId) const;
 
-    // 点数相邻的判断（用于匹配）
+    // Adjacent face rule (±1)
     bool facesAreAdjacent(CardFaceType a, CardFaceType b) const;
 
-    // 动画移动 helpers
+    // Animations
     void animatePlayfieldCardToHand(int playfieldIndex, int cardId);
     void animateReserveTopToHand();
 
-    // 新增：覆盖检测并同步 model/view
-    //  - 按 playfield 配置顺序（数组顺序）判断：若存在任意 index > i 的牌与 i 相交，
-    //    则 i 被覆盖（covered）。否则 i 翻开（exposed）。
-    //  - overlapAreaThreshold: 可选阈值（以像素面积计），用于忽略极小重叠
+    // Recompute playfield coverage and sync face-up state
     void updatePlayfieldCoverage(float overlapAreaThreshold = 0.0f);
 
-    // 新增：在开局时自动从 reserve 翻一张牌到 hand（animate=false 表示无动画、立即生效）
+    // Auto draw the first reserve card to hand (animate=false for initial)
     void drawInitialReserveTopToHand(bool animate = false);
 
 private:
@@ -72,6 +69,7 @@ private:
     cocos2d::Node* _handNode = nullptr;
 
     GameModel _gameModel;
+    UndoModel _undoModel;
 
     std::unordered_map<int, CardView*> _cardViews;
 
