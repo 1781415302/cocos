@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #ifndef GameController_h
 #define GameController_h
 
@@ -7,6 +7,7 @@
 #include "models/UndoModel.h"
 #include "views/CardView.h"
 #include "configs/LevelConfig.h"
+#include "views/UndoView.h" // <- 确保包含 UndoView 的头
 #include <unordered_map>
 #include <memory>
 #include <string>
@@ -48,7 +49,7 @@ private:
     int findReserveIndexByCardId(int cardId) const;
     int findHandIndexByCardId(int cardId) const;
 
-    // Adjacent face rule (��1)
+    // Adjacent face rule (±1)
     bool facesAreAdjacent(CardFaceType a, CardFaceType b) const;
 
     // Animations
@@ -78,6 +79,9 @@ private:
     float _moveDuration = 0.28f;
 
     cocos2d::Vec2 _defaultHandPosition = cocos2d::Vec2(540.0f, 200.0f);
+
+    // Undo button view (指针类型正确声明)
+    UndoView* _undoView = nullptr;
 };
 
 #endif // GameController_h

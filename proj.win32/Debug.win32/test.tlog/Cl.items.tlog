@@ -9,4 +9,5 @@ C:\Users\17814\Documents\c++\cocos\test\Classes\models\GameModel.cpp;C:\Users\17
 C:\Users\17814\Documents\c++\cocos\test\Classes\models\UndoModel.cpp;C:\Users\17814\Documents\c++\cocos\test\proj.win32\Debug.win32\UndoModel.obj
 C:\Users\17814\Documents\c++\cocos\test\Classes\services\GameModelFromLevelGenerator.cpp;C:\Users\17814\Documents\c++\cocos\test\proj.win32\Debug.win32\GameModelFromLevelGenerator.obj
 C:\Users\17814\Documents\c++\cocos\test\Classes\views\CardView.cpp;C:\Users\17814\Documents\c++\cocos\test\proj.win32\Debug.win32\CardView.obj
+C:\Users\17814\Documents\c++\cocos\test\Classes\views\UndoView.cpp;C:\Users\17814\Documents\c++\cocos\test\proj.win32\Debug.win32\UndoView.obj
 C:\Users\17814\Documents\c++\cocos\test\proj.win32\main.cpp;C:\Users\17814\Documents\c++\cocos\test\proj.win32\Debug.win32\main.obj

@@ -5,6 +5,7 @@
 #include "models/CardModel.h"
 #include "models/UndoModel.h"
 #include "utils/CardEnums.h"
+#include "views/UndoView.h"
 #include <cassert>
 #include <algorithm>
 
@@ -27,6 +28,29 @@ GameController::GameController(Node* parentNode)
     _parentNode->addChild(_playfieldNode, 0);
     _parentNode->addChild(_reserveNode, 5);
     _parentNode->addChild(_handNode, 10);
+
+    // Create UndoView and position it at bottom-right corner of the visible area
+    // Note: Assumes there's a resource image named "undo.png" in Resources
+    _undoView = UndoView::create("undo.png");
+    if (_undoView) {
+        _undoView->setName("undo_view");
+        // set click callback to call handleUndo()
+        _undoView->setClickCallback([this]() {
+            this->handleUndo();
+            });
+
+        // compute bottom-right position in design/visible coordinates
+        Vec2 origin = Director::getInstance()->getVisibleOrigin();
+        Size vs = Director::getInstance()->getVisibleSize();
+        Size btnSz = _undoView->getButtonSize();
+
+        float margin = 18.0f;
+        float x = origin.x + vs.width - margin - btnSz.width * 0.5f;
+        float y = origin.y + margin + btnSz.height * 0.5f;
+
+        _undoView->setPosition(Vec2(x, y));
+        _parentNode->addChild(_undoView, 20);
+    }
 }
 
 GameController::~GameController()
@@ -35,6 +59,11 @@ GameController::~GameController()
     _playfieldNode = nullptr;
     _reserveNode = nullptr;
     _handNode = nullptr;
+
+    if (_undoView && _undoView->getParent()) {
+        _undoView->removeFromParent();
+    }
+    _undoView = nullptr;
 }
 
 void GameController::startGame(const std::string& levelId)
@@ -576,7 +605,7 @@ void GameController::handleUndo()
     }
     case UndoModel::ActionType::MoveHandToPlayfield:
     {
-        // Bring card back from playfield index to hand top, restoring state
+        // Bring card back from playfield index to hand, restoring state
         ok = _gameModel.movePlayfieldCardToHand(action.playfieldIndex);
         if (ok) {
             const auto& hand = _gameModel.getHandCards();
@@ -681,6 +710,12 @@ void GameController::reset()
         if (v && v->getParent()) v->removeFromParent();
     }
     _cardViews.clear();
+
+    // remove undo view
+    if (_undoView && _undoView->getParent()) {
+        _undoView->removeFromParent();
+    }
+    _undoView = nullptr;
 
     // reset model & undo
     _gameModel = GameModel();
