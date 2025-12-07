@@ -75,7 +75,15 @@ bool CardView::init(const std::shared_ptr<CardModel>& cardModel)
 
     // 根据 model 的状态初始化正反面显示（不做动画）
     _isFaceUp = (modelLock->getStatus() != CardStatus::COVERED);
-    setFaceUp(_isFaceUp, false);
+    //setFaceUp(_isFaceUp, false);
+    if (!_isFaceUp) {
+		_backSprite->setVisible(true);  
+		_frontNode->setVisible(false);
+    }
+    else {
+		_backSprite->setVisible(false);
+		_frontNode->setVisible(true);
+    }
 
     // 将视图初始位置设置为 model 中的 position
     setPosition(modelLock->getPosition());
@@ -236,7 +244,7 @@ void CardView::setFaceUp(bool faceUp, bool animate)
     }
 
     // 通过缩放 X 轴实现翻转动画（1->0, 切换可见性, 0->1）
-    float half = 0.12f;
+    float half = 0.2f;
     auto shrink = ScaleTo::create(half, 0.0f, 1.0f);
     auto expand = ScaleTo::create(half, 1.0f, 1.0f);
     auto cb = CallFunc::create([this, faceUp]() {
@@ -255,7 +263,7 @@ bool CardView::isFaceUp() const
 void CardView::setCardVisible(bool visible)
 {
     // visible 表示显示正面
-    setFaceUp(visible, false);
+    setFaceUp(visible, true);
 }
 
 int CardView::getCardId() const
