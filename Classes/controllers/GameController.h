@@ -1,5 +1,4 @@
-﻿﻿#pragma once
-#ifndef GameController_h
+﻿#ifndef GameController_h
 #define GameController_h
 
 #include "cocos2d.h"
@@ -62,8 +61,8 @@ private:
     // Auto draw the first reserve card to hand (animate=false for initial)
     void drawInitialReserveTopToHand(bool animate = false);
 
-    // Positioning for undo icon: place it to the right of hand (or fallback to bottom-right)
-    void positionUndoIcon();
+    // Reposition undo button to the right of hand top
+    void repositionUndoToRightOfHand(float spacing = 16.0f);
 
 private:
     cocos2d::Node* _parentNode = nullptr;

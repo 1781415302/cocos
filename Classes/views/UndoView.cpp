@@ -1,4 +1,4 @@
-#include "UndoView.h"
+ï»¿#include "UndoView.h"
 #include "cocos2d.h"
 
 using namespace cocos2d;
@@ -22,7 +22,7 @@ bool UndoView::init(const std::string& imageFile)
         _sprite = Sprite::create(imageFile);
     }
     else {
-        _sprite = Sprite::create(imageFile); // ³¢ÊÔ´´½¨£¬¼´Ê¹Ê§°ÜÒ²¼ÌÐø
+        _sprite = Sprite::create(imageFile); // ï¿½Ô³ï¿½ï¿½Ô´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê§ï¿½ï¿½ï¿½ï¿½Îªï¿½ï¿½
     }
 
     if (!_sprite) {
@@ -34,9 +34,6 @@ bool UndoView::init(const std::string& imageFile)
     addChild(_sprite);
     setContentSize(_sprite->getContentSize());
     _sprite->setPosition(getContentSize() * 0.5f);
-
-    // Ã÷È·ÉèÎªÖÐÐÄÃªµã£¬±£Ö¤°´ÖÐÐÄÎ»ÖÃ¼ÆËã²»»á³öÏÖÆ«ÒÆ
-    this->setAnchorPoint(Vec2(0.5f, 0.5f));
 
     auto listener = EventListenerTouchOneByOne::create();
     listener->setSwallowTouches(true);
