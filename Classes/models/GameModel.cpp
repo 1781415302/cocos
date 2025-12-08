@@ -1,14 +1,16 @@
 #include "GameModel.h"
 #include "CardModel.h"
 #include <algorithm>
+#include <utils/json.hpp>
 
 using namespace cocos2d;
+using json = nlohmann::json;
 
 GameModel::GameModel()
 {
-    // 默认初始化
 }
 
+// existing getters/setters unchanged...
 std::vector<std::shared_ptr<CardModel>>& GameModel::getPlayfieldCards() { return _playfieldCards; }
 const std::vector<std::shared_ptr<CardModel>>& GameModel::getPlayfieldCards() const { return _playfieldCards; }
 
@@ -52,7 +54,7 @@ bool GameModel::drawReserveToHand()
     auto cardPtr = _reserveCards.back();
     _reserveCards.pop_back();
 
-    cardPtr->setFaceUp(true); // 抽到 hand 末尾，并翻开
+    cardPtr->setFaceUp(true); // 到 hand 顶部应当翻开
     _handCards.push_back(cardPtr);
     return true;
 }
@@ -75,7 +77,6 @@ bool GameModel::movePlayfieldCardToHand(int playfieldIndex)
 
 bool GameModel::moveTopHandCardToPlayfieldAt(int playfieldIndex, Vec2 position, CardStatus status)
 {
-    // 默认 visible=true，faceUp 保持当前
     if (_handCards.empty()) return false;
     bool visible = true;
     bool faceUp = _handCards.back()->isFaceUp();
@@ -84,7 +85,6 @@ bool GameModel::moveTopHandCardToPlayfieldAt(int playfieldIndex, Vec2 position, 
 
 bool GameModel::moveTopHandCardToPlayfieldAt(int playfieldIndex, Vec2 position, CardStatus status, bool visible)
 {
-    // faceUp 保持当前
     if (_handCards.empty()) return false;
     bool faceUp = _handCards.back()->isFaceUp();
     return moveTopHandCardToPlayfieldAt(playfieldIndex, position, status, visible, faceUp);
@@ -120,7 +120,6 @@ bool GameModel::flipTopHandCard()
 
 bool GameModel::moveTopHandCardBackToReserve(Vec2 position, CardStatus status, bool visible)
 {
-    // faceUp 保持当前
     if (_handCards.empty()) return false;
     bool faceUp = _handCards.back()->isFaceUp();
     return moveTopHandCardBackToReserve(position, status, visible, faceUp);
@@ -138,7 +137,7 @@ bool GameModel::moveTopHandCardBackToReserve(Vec2 position, CardStatus status, b
     cardPtr->setVisible(visible);
     cardPtr->setFaceUp(faceUp);
 
-    _reserveCards.push_back(cardPtr); // 退回 reserve 尾部
+    _reserveCards.push_back(cardPtr); // 放回 reserve 底部
     return true;
 }
 
@@ -182,4 +181,63 @@ int GameModel::findHandIndexById(int cardId) const
         if (_handCards[i] && _handCards[i]->getId() == cardId) return static_cast<int>(i);
     }
     return -1;
+}
+
+// Serialization
+json GameModel::toJson() const
+{
+    json j;
+    j["version"] = 1;
+    // levelId should be filled by caller if needed
+    j["nextCardId"] = _nextCardId;
+
+    auto arr = json::array();
+    for (const auto& c : _playfieldCards) {
+        if (c) arr.push_back(c->toJson());
+    }
+    j["playfield"] = arr;
+
+    arr = json::array();
+    for (const auto& c : _reserveCards) {
+        if (c) arr.push_back(c->toJson());
+    }
+    j["reserve"] = arr;
+
+    arr = json::array();
+    for (const auto& c : _handCards) {
+        if (c) arr.push_back(c->toJson());
+    }
+    j["hand"] = arr;
+
+    return j;
+}
+
+GameModel GameModel::fromJson(const json& j)
+{
+    GameModel gm;
+    gm._nextCardId = j.value("nextCardId", 1);
+
+    if (j.contains("playfield") && j["playfield"].is_array()) {
+        for (const auto& el : j["playfield"]) {
+            CardModel cm = CardModel::fromJson(el);
+            auto p = std::make_shared<CardModel>(cm);
+            gm._playfieldCards.push_back(p);
+        }
+    }
+    if (j.contains("reserve") && j["reserve"].is_array()) {
+        for (const auto& el : j["reserve"]) {
+            CardModel cm = CardModel::fromJson(el);
+            auto p = std::make_shared<CardModel>(cm);
+            gm._reserveCards.push_back(p);
+        }
+    }
+    if (j.contains("hand") && j["hand"].is_array()) {
+        for (const auto& el : j["hand"]) {
+            CardModel cm = CardModel::fromJson(el);
+            auto p = std::make_shared<CardModel>(cm);
+            gm._handCards.push_back(p);
+        }
+    }
+
+    return gm;
 }

@@ -109,6 +109,7 @@ void LevelSelectScene::runSelectAnimationAndEnter(const std::string& levelId, No
 }
 
 // 新增：展示游戏内存档浏览器（草稿实现）
+// 点击列表项会直接打开该存档（立刻进入关卡并设置 SaveManager pending 路径）
 void LevelSelectScene::showSaveBrowser()
 {
     // 弹出半透明遮罩
@@ -163,7 +164,7 @@ void LevelSelectScene::showSaveBrowser()
         listView->addChild(noLabel);
     }
     else {
-        // 每个文件做成一个 button item
+        // 每个文件做成一个 button item；点击 item 就直接打开存档
         for (const auto& fullPath : files) {
             std::string filename = fullPath;
             // 尝试只保留文件名（去掉目录）
@@ -178,67 +179,35 @@ void LevelSelectScene::showSaveBrowser()
             item->setUserData(nullptr); // placeholder
             // 存储完整路径到 button 的名字字段以便回调使用
             item->setName(fullPath);
+
+            // 关键：直接为 item 添加点击事件（按值捕获 fullPath 和 overlay）
+            item->addClickEventListener([this, fullPath, overlay](Ref*) {
+                CCLOG("Open save (item click): %s", fullPath.c_str());
+                SaveManager::getInstance().setPendingLoadPath(fullPath);
+                // 立即关闭面板并进入默认关卡（草稿：将来应解析 levelId 并进入对应关卡）
+                overlay->removeFromParent();
+                auto scene = HelloWorld::createSceneWithLevel("1");
+                Director::getInstance()->replaceScene(TransitionFade::create(0.3f, scene));
+                });
+
             listView->pushBackCustomItem(item);
         }
     }
 
-    // 记录当前被选择的 fullPath
-    std::string selectedFullPath;
-
-    // 点击 list 子项时高亮并记录
-    listView->addEventListener([listView, &selectedFullPath](Ref* sender, ui::ListView::EventType type) {
-        if (type == ui::ListView::EventType::ON_SELECTED_ITEM_END) {
-            ssize_t idx = listView->getCurSelectedIndex();
-            auto widget = listView->getItem(idx);
-            if (widget) {
-                selectedFullPath = widget->getName();
-                CCLOG("Selected save: %s", selectedFullPath.c_str());
-            }
-        }
-        });
-
-    // 底部按钮：打开 / 取消
-    auto openBtn = ui::Button::create();
-    openBtn->setTitleText(u8"打开");
-    openBtn->setTitleFontSize(22);
-    openBtn->setPosition(Vec2(panel->getContentSize().width * 0.5f - 100, 40));
-    panel->addChild(openBtn, 2);
-
+    // 底部保留一个取消按钮以便关闭面板
     auto cancelBtn = ui::Button::create();
     cancelBtn->setTitleText(u8"取消");
     cancelBtn->setTitleFontSize(22);
-    cancelBtn->setPosition(Vec2(panel->getContentSize().width * 0.5f + 100, 40));
+    cancelBtn->setPosition(Vec2(panel->getContentSize().width * 0.5f, 40));
     panel->addChild(cancelBtn, 2);
 
-    // 取消关闭 overlay
     cancelBtn->addClickEventListener([overlay](Ref*) {
         overlay->removeFromParent();
         });
 
-    // 打开：设置 pending 路径并进入场景（草稿：进入 level "1"，后续替换为读取实际 levelId）
-    openBtn->addClickEventListener([this, overlay, &selectedFullPath](Ref*) {
-        if (selectedFullPath.empty()) {
-            // 没选中文件：可以提示或直接关闭
-            CCLOG("No save selected");
-            overlay->removeFromParent();
-            return;
-        }
-        CCLOG("Open save: %s", selectedFullPath.c_str());
-        SaveManager::getInstance().setPendingLoadPath(selectedFullPath);
-
-        // TODO: 真实实现应解析 selectedFullPath 内的 levelId 并进入对应关卡，然后触发 loadFromSave(path)
-        // 目前草稿直接进入 level "1"
-        overlay->removeFromParent();
-        auto scene = HelloWorld::createSceneWithLevel("1");
-        Director::getInstance()->replaceScene(TransitionFade::create(0.3f, scene));
-        });
-
     // 屏蔽底层点击，但允许 panel 内部控件接收事件：
-    // overlay 的监听器在触摸点不在 panel 内时吞掉触摸（阻止底层交互）；
-    // 当触摸点在 panel 内时返回 false，让子节点（listView、按钮等）处理事件。
     auto swallowListener = EventListenerTouchOneByOne::create();
     swallowListener->setSwallowTouches(true);
-    // capture panel raw pointer (it will be alive as long as overlay exists)
     swallowListener->onTouchBegan = [panel](Touch* touch, Event* event) -> bool {
         Vec2 touchInPanel = panel->convertToNodeSpace(touch->getLocation());
         Rect panelRect(0, 0, panel->getContentSize().width, panel->getContentSize().height);

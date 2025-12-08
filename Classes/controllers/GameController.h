@@ -10,66 +10,46 @@
 #include <memory>
 #include <string>
 
-/**
- * GameController (with Undo)
- *
- * Responsibilities:
- * - Load level config, build view + model
- * - Manage playfield / reserve / hand
- */
+class SaveManager;
+
 class GameController
 {
 public:
     explicit GameController(cocos2d::Node* parentNode);
     ~GameController();
 
-    // Start a specific level
-    void startGame(const std::string& levelId);
+    // Start a specific level; optional savePath to load from
+    void startGame(const std::string& levelId, const std::string& optionalSavePath = "");
 
-    // Click handler for playfield card
+    // Load a previously saved file into current controller (override current model)
+    bool loadFromSave(const std::string& savePath);
+
+    // Click handlers...
     void handlePlayfieldCardClick(int cardId);
-
-    // Click handler for reserve stack
     void handleReserveClick();
-
-    // Undo last action
     void handleUndo();
-
-    // Cleanup controller, remove views and reset model
     void reset();
 
+    // expose save trigger
+    void saveToActive() const;
+
 private:
-    // Build views from model
+    // ... existing private methods unchanged ...
     void createViewsFromModel();
 
-    // Index helpers
     int findPlayfieldIndexByCardId(int cardId) const;
     int findReserveIndexByCardId(int cardId) const;
     int findHandIndexByCardId(int cardId) const;
-
-    // Adjacent face rule (±1)
     bool facesAreAdjacent(CardFaceType a, CardFaceType b) const;
-
-    // Animations
     void animatePlayfieldCardToHand(int playfieldIndex, int cardId);
     void animateReserveTopToHand();
-
-    // Recompute playfield coverage and sync face-up state
     void updatePlayfieldCoverage(float overlapAreaThreshold = 0.0f);
-
-    // Auto draw the first reserve card to hand (animate=false for initial)
     void drawInitialReserveTopToHand(bool animate = false);
-
-    // Reposition undo button to the right of hand top
     void repositionUndoToRightOfHand(float spacing = 16.0f);
-
-    // Safely reparent a CardView between nodes, avoiding immediate deletion,
-    // and ensure its click callback is set appropriately for the destination.
     void reparentView(CardView* v, cocos2d::Node* newParent);
 
 private:
     cocos2d::Node* _parentNode = nullptr;
-
     cocos2d::Node* _playfieldNode = nullptr;
     cocos2d::Node* _reserveNode = nullptr;
     cocos2d::Node* _handNode = nullptr;
@@ -85,6 +65,5 @@ private:
 
     cocos2d::Vec2 _defaultHandPosition = cocos2d::Vec2(540.0f, 200.0f);
 
-    // Undo button view
     UndoView* _undoView = nullptr;
 };

@@ -1,6 +1,8 @@
 #include "UndoModel.h"
 #include "GameModel.h"
+#include <utils/json.hpp>
 
+using json = nlohmann::json;
 using namespace cocos2d;
 
 void UndoModel::push(const Action& action)
@@ -75,8 +77,39 @@ bool UndoModel::applyLast(GameModel& model)
     return ok;
 }
 
-// -------- 便捷构造器 --------
+// Serialization for Action
+json UndoModel::Action::toJson() const
+{
+    json j;
+    j["type"] = static_cast<int>(type);
+    j["cardId"] = cardId;
+    j["playfieldIndex"] = playfieldIndex;
+    j["prevPosition"] = { {"x", prevPosition.x}, {"y", prevPosition.y} };
+    j["prevStatus"] = static_cast<int>(prevStatus);
+    j["prevVisible"] = prevVisible;
+    j["prevFaceUp"] = prevFaceUp;
+    j["faceUpAfter"] = faceUpAfter;
+    return j;
+}
 
+UndoModel::Action UndoModel::Action::fromJson(const json& j)
+{
+    Action a;
+    a.type = static_cast<ActionType>(j.value("type", 0));
+    a.cardId = j.value("cardId", -1);
+    a.playfieldIndex = j.value("playfieldIndex", -1);
+    if (j.contains("prevPosition")) {
+        a.prevPosition.x = j["prevPosition"].value("x", 0.0f);
+        a.prevPosition.y = j["prevPosition"].value("y", 0.0f);
+    }
+    a.prevStatus = static_cast<CardStatus>(j.value("prevStatus", static_cast<int>(CardStatus::COVERED)));
+    a.prevVisible = j.value("prevVisible", true);
+    a.prevFaceUp = j.value("prevFaceUp", true);
+    a.faceUpAfter = j.value("faceUpAfter", true);
+    return a;
+}
+
+// Action factory functions (unchanged, copied)
 UndoModel::Action UndoModel::makeDrawReserveToHand(const CardModel& cardBefore)
 {
     Action a;
@@ -135,7 +168,27 @@ UndoModel::Action UndoModel::makeFlipHandTop(const CardModel& cardBefore)
     a.prevPosition = cardBefore.getPosition();
     a.prevStatus = cardBefore.getStatus();
     a.prevVisible = cardBefore.isVisible();
-    a.prevFaceUp = cardBefore.isFaceUp();   // 翻面前的状态
+    a.prevFaceUp = cardBefore.isFaceUp();   // previous state
     a.faceUpAfter = true;
     return a;
+}
+
+// Serialize entire UndoModel
+json UndoModel::toJson() const
+{
+    json arr = json::array();
+    for (const auto& a : _stack) {
+        arr.push_back(a.toJson());
+    }
+    return arr;
+}
+
+UndoModel UndoModel::fromJson(const json& j)
+{
+    UndoModel um;
+    if (!j.is_array()) return um;
+    for (const auto& el : j) {
+        um._stack.push_back(Action::fromJson(el));
+    }
+    return um;
 }

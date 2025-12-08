@@ -2,15 +2,16 @@
 #include "HelloWorldScene.h"
 #include "controllers/GameController.h"
 #include "LevelSelectScene.h"
+#include "managers/SaveManager.h"
 #include "ui/CocosGUI.h"
 #include <algorithm>
-#include<string>
+#include <string>
 
 USING_NS_CC;
 
 Scene* HelloWorld::createScene()
 {
-    // 默认进入 1 关
+    // 默认进入关卡 "1"
     return HelloWorld::createSceneWithLevel("1");
 }
 
@@ -34,13 +35,15 @@ HelloWorld* HelloWorld::createWithLevel(const std::string& levelId)
 
 bool HelloWorld::init()
 {
-    // 兼容原有入口，默认加载 1 关
     return initWithLevel("1");
 }
 
 bool HelloWorld::initWithLevel(const std::string& levelId)
 {
+    CCLOG("HelloWorld::initWithLevel - begin levelId=%s", levelId.c_str());
+
     if (!Scene::init()) {
+        CCLOG("HelloWorld::initWithLevel - Scene::init failed");
         return false;
     }
 
@@ -49,7 +52,7 @@ bool HelloWorld::initWithLevel(const std::string& levelId)
     auto visibleSize = Director::getInstance()->getVisibleSize();
     Vec2 origin = Director::getInstance()->getVisibleOrigin();
 
-    // 背景图（优先显示），按屏幕等比缩放以覆盖可视区域
+    // 背景图片（居中并按最大的比例缩放以填充屏幕）
     auto bgSprite = Sprite::create("background.png");
     if (bgSprite) {
         Size bgSize = bgSprite->getContentSize();
@@ -60,43 +63,72 @@ bool HelloWorld::initWithLevel(const std::string& levelId)
         bgSprite->setPosition(origin + Vec2(visibleSize.width * 0.5f, visibleSize.height * 0.5f));
         this->addChild(bgSprite, -2); // 放在最底层
     }
+    else {
+        CCLOG("HelloWorld::initWithLevel - background.png not found");
+    }
 
-    // 背景色层（保留但设为透明，以便在背景图不存在时作为备用颜色）
+    // 半透明底色层（在背景和游戏区之间）
     auto layerColor = LayerColor::create(Color4B(25, 100, 25, 0));
     this->addChild(layerColor, -1);
 
-    // 注意：请确保把支持中文的 TTF（例如 simhei.ttf）放到 resources/fonts/ 下
+    // 字体（确保 fonts 文件夹中存在）
     const std::string chineseFont = "fonts/FLjiangdouti-Regular-2.ttf";
 
-    // 标题：使用 UTF-8 字面量并显式构造 std::string 以避免指针运算错误
-    std::string title = std::string(u8"关卡") + levelId;
-    auto label = Label::createWithTTF(title, chineseFont, 50);
-    label->setPosition(origin + Vec2(visibleSize.width * 0.5f, visibleSize.height - 30));
-    this->addChild(label, 1000);
+    // 关卡标题（显示当前关卡）
+    std::string title = std::string(u8"关卡 ") + levelId;
+    auto titleLabel = Label::createWithTTF(title, chineseFont, 50);
+    if (titleLabel) {
+        titleLabel->setPosition(origin + Vec2(visibleSize.width * 0.5f, visibleSize.height - 30));
+        this->addChild(titleLabel, 1000);
+    }
+    else {
+        CCLOG("HelloWorld::initWithLevel - failed to create title label");
+    }
 
-    // 退出/返回按钮：改为返回关卡选择页面，确保按钮标题使用中文字体
+    // 退出/返回按钮（右上）
     auto closeItem = ui::Button::create();
     closeItem->setTitleFontName(chineseFont);
     closeItem->setTitleFontSize(40);
     closeItem->setTitleText(u8"退出");
-    closeItem->setPosition(Vec2(origin.x + visibleSize.width - 60, origin.y + visibleSize.height - 30));
+    closeItem->setAnchorPoint(Vec2(1.0f, 1.0f));
+    closeItem->setPosition(origin + Vec2(visibleSize.width - 10, visibleSize.height - 10));
     closeItem->addClickEventListener([this](Ref*) {
         auto scene = LevelSelectScene::createScene();
         Director::getInstance()->replaceScene(TransitionFade::create(0.3f, scene));
         });
     this->addChild(closeItem, 1000);
 
-    // GameController 的父节点
+    // 游戏区域父节点（GameController 会把 playfield / reserve / hand 放在这个节点下）
     _gameParentNode = Node::create();
-    _gameParentNode->setPosition(origin + Vec2(10, 10)); // 简单边距
+    _gameParentNode->setPosition(origin + Vec2(10, 10)); // 留边距
     this->addChild(_gameParentNode, 0);
 
-    // 创建 GameController
+    // 创建 GameController（不在 init 中直接 startGame，因为可能需要先从 SaveManager 加载 pending）
     _gameController = new GameController(_gameParentNode);
 
-    // 按传入的关卡 ID 启动游戏
-    _gameController->startGame(_levelId);
+    // 检查是否有 pending 存档路径（从 LevelSelect 点击打开存档时设置）
+    std::string pending = SaveManager::getInstance().getPendingLoadPath();
+    CCLOG("HelloWorld::initWithLevel - pending save path = '%s'", pending.c_str());
 
+    if (!pending.empty()) {
+        // 如果存在 pending 存档，优先从存档加载
+        bool ok = false;
+        CCLOG("HelloWorld::initWithLevel - attempting to start game from save: %s", pending.c_str());
+        _gameController->startGame(_levelId, pending);
+        // 将该路径设为 active，这样后续自动保存会写回同一文件
+        SaveManager::getInstance().setActiveSavePath(pending);
+        // 清空 pending 避免重复加载
+        SaveManager::getInstance().setPendingLoadPath("");
+        CCLOG("HelloWorld::initWithLevel - started game from save %s", pending.c_str());
+    }
+    else {
+        // 正常新建关卡
+        _gameController->startGame(_levelId);
+        // SaveManager 会在 GameController::startGame 内创建新的活动存档并保存初始状态
+        CCLOG("HelloWorld::initWithLevel - started new game level %s", _levelId.c_str());
+    }
+
+    CCLOG("HelloWorld::initWithLevel - end");
     return true;
 }
 

@@ -179,6 +179,7 @@ xcopy "$(ProjectDir)..\Resources" "$(OutDir)\Resources\" /D /E /I /F /Y
     <ClInclude Include="..\Classes\models\UndoModel.h" />
     <ClInclude Include="..\Classes\services\GameModelFromLevelGenerator.h" />
     <ClInclude Include="..\Classes\utils\CardEnums.h" />
+    <ClInclude Include="..\Classes\utils\json.hpp" />
     <ClInclude Include="..\Classes\views\CardView.h" />
     <ClInclude Include="..\Classes\views\UndoView.h" />
     <ClInclude Include="main.h" />

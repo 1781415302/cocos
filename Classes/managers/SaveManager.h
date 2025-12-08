@@ -5,6 +5,9 @@
 #include <string>
 #include <vector>
 
+class GameModel;
+class UndoModel;
+
 class SaveManager
 {
 public:
@@ -23,9 +26,21 @@ public:
     void setPendingLoadPath(const std::string& path);
     std::string getPendingLoadPath() const;
 
+    // Active save path (当前游戏会话正在使用的存档文件)
+    void setActiveSavePath(const std::string& path);
+    std::string getActiveSavePath() const;
+
+    // 创建新的存档（按时间命名），并返回新文件路径（不会写入初始内容）
+    std::string createNewSaveFileForLevel(const std::string& levelId) const;
+
+    // 保存/加载 GameModel + UndoModel 到/从指定文件（JSON）
+    bool saveGameToFile(const std::string& filepath, const GameModel& gameModel, const class UndoModel& undoModel) const;
+    bool loadGameFromFile(const std::string& filepath, GameModel& outGameModel, class UndoModel& outUndoModel) const;
+
 private:
     SaveManager() = default;
     std::string _pendingPath;
+    std::string _activePath;
 };
 
 #endif // SAVE_MANAGER_H
