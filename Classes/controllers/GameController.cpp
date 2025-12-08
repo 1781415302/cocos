@@ -29,7 +29,7 @@ GameController::GameController(Node* parentNode)
     _parentNode->addChild(_reserveNode, 5);
     _parentNode->addChild(_handNode, 10);
 
-    // Create UndoView and position it at bottom-right corner of the visible area
+    // Create UndoView and add it to parent; positioning will be handled by positionUndoIcon()
     // Note: Assumes there's a resource image named "undo.png" in Resources
     _undoView = UndoView::create("undo.png");
     if (_undoView) {
@@ -39,23 +39,11 @@ GameController::GameController(Node* parentNode)
             this->handleUndo();
             });
 
-        // compute bottom-right position in design/visible coordinates (world coords)
-        Vec2 origin = Director::getInstance()->getVisibleOrigin();
-        Size vs = Director::getInstance()->getVisibleSize();
-        Size btnSz = _undoView->getButtonSize();
-
-        float margin = 18.0f;
-        // world position (relative to the visible origin)
-        float wx = origin.x + vs.width - margin - btnSz.width * 0.5f;
-        float wy = origin.y + margin + btnSz.height * 0.5f;
-        Vec2 worldPos(wx, wy);
-
-        // Convert world position into parent node's local coordinates so the button is placed correctly
-        Vec2 parentLocal = _parentNode ? _parentNode->convertToNodeSpace(worldPos) : worldPos;
-        _undoView->setPosition(parentLocal);
-
         // add to parent with high z to be above everything else
         _parentNode->addChild(_undoView, 20);
+
+        // Position it (will place to the right of hand if possible; otherwise bottom-right)
+        positionUndoIcon();
     }
 }
 
@@ -147,6 +135,9 @@ void GameController::createViewsFromModel()
 
         v->setCardVisible(cardPtr->isFaceUp());
     }
+
+    // After hand views have been created, reposition undo so it sits to the right of hand
+    positionUndoIcon();
 }
 
 /**
@@ -727,4 +718,70 @@ void GameController::reset()
     _gameModel = GameModel();
     _undoModel.clear();
     _busy = false;
+}
+
+/**
+ * Position the undo icon so that it's slightly to the right of the hand area.
+ * If the hand has no children (no cards yet), fall back to the previous bottom-right placement.
+ */
+void GameController::positionUndoIcon()
+{
+    if (!_undoView || !_parentNode) return;
+
+    const float rightOffset = 12.0f; // pixels to the right of the hand area
+    const float verticalOffset = 0.0f;
+    const float margin = 18.0f;
+
+    Vec2 targetWorldPos;
+
+    // If hand node has children, compute hand bounds in world coordinates and place undo to the right-center
+    const auto& children = _handNode ? _handNode->getChildren() : std::vector<Node*>();
+    if (_handNode && !children.empty()) {
+        float minX = std::numeric_limits<float>::infinity();
+        float maxX = -std::numeric_limits<float>::infinity();
+        float minY = std::numeric_limits<float>::infinity();
+        float maxY = -std::numeric_limits<float>::infinity();
+
+        for (auto child : children) {
+            if (!child) continue;
+            Rect b = child->getBoundingBox(); // in child's parent (_handNode) coords
+            Vec2 originWorld = child->getParent()->convertToWorldSpace(Vec2(b.origin.x, b.origin.y));
+            // four corners
+            Vec2 c0 = originWorld;
+            Vec2 c1 = originWorld + Vec2(b.size.width, 0);
+            Vec2 c2 = originWorld + Vec2(b.size.width, b.size.height);
+            Vec2 c3 = originWorld + Vec2(0, b.size.height);
+            Vec2 corners[4] = { c0, c1, c2, c3 };
+            for (int i = 0; i < 4; ++i) {
+                minX = std::min(minX, corners[i].x);
+                maxX = std::max(maxX, corners[i].x);
+                minY = std::min(minY, corners[i].y);
+                maxY = std::max(maxY, corners[i].y);
+            }
+        }
+
+        if (minX <= maxX && minY <= maxY) {
+            float centerY = (minY + maxY) * 0.5f;
+            targetWorldPos = Vec2(maxX + rightOffset, centerY + verticalOffset);
+        }
+        else {
+            // fallback to bottom-right
+            Vec2 origin = Director::getInstance()->getVisibleOrigin();
+            Size vs = Director::getInstance()->getVisibleSize();
+            targetWorldPos = Vec2(origin.x + vs.width - margin, origin.y + margin);
+        }
+    }
+    else {
+        // fallback: place at bottom-right of visible area (original behavior)
+        Vec2 origin = Director::getInstance()->getVisibleOrigin();
+        Size vs = Director::getInstance()->getVisibleSize();
+        Size btnSz = _undoView->getButtonSize();
+        float wx = origin.x + vs.width - margin - btnSz.width * 0.5f;
+        float wy = origin.y + margin + btnSz.height * 0.5f;
+        targetWorldPos = Vec2(wx, wy);
+    }
+
+    // Convert world coordinate to parent node local coordinate and set position
+    Vec2 parentLocal = _parentNode ? _parentNode->convertToNodeSpace(targetWorldPos) : targetWorldPos;
+    _undoView->setPosition(parentLocal);
 }

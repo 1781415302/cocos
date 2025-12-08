@@ -1,4 +1,4 @@
-﻿#pragma once
+﻿﻿#pragma once
 #ifndef GameController_h
 #define GameController_h
 
@@ -19,7 +19,7 @@
  * - Load level config, build view + model
  * - Manage playfield / reserve / hand
  */
-class GameController
+    class GameController
 {
 public:
     explicit GameController(cocos2d::Node* parentNode);
@@ -61,6 +61,9 @@ private:
 
     // Auto draw the first reserve card to hand (animate=false for initial)
     void drawInitialReserveTopToHand(bool animate = false);
+
+    // Positioning for undo icon: place it to the right of hand (or fallback to bottom-right)
+    void positionUndoIcon();
 
 private:
     cocos2d::Node* _parentNode = nullptr;

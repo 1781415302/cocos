@@ -22,7 +22,7 @@ bool UndoView::init(const std::string& imageFile)
         _sprite = Sprite::create(imageFile);
     }
     else {
-        _sprite = Sprite::create(imageFile); // 仍尝试创建，若失败则为空
+        _sprite = Sprite::create(imageFile); // 尝试创建，即使失败也继续
     }
 
     if (!_sprite) {
@@ -34,6 +34,9 @@ bool UndoView::init(const std::string& imageFile)
     addChild(_sprite);
     setContentSize(_sprite->getContentSize());
     _sprite->setPosition(getContentSize() * 0.5f);
+
+    // 明确设为中心锚点，保证按中心位置计算不会出现偏移
+    this->setAnchorPoint(Vec2(0.5f, 0.5f));
 
     auto listener = EventListenerTouchOneByOne::create();
     listener->setSwallowTouches(true);
