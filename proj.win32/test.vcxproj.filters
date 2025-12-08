@@ -75,6 +75,9 @@
     <ClCompile Include="..\Classes\views\UndoView.cpp">
       <Filter>src\View</Filter>
     </ClCompile>
+    <ClCompile Include="..\Classes\managers\SaveManager.cpp">
+      <Filter>src\Manager</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="main.h">
@@ -121,6 +124,9 @@
     </ClInclude>
     <ClInclude Include="..\Classes\views\UndoView.h">
       <Filter>src\View</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Classes\managers\SaveManager.h">
+      <Filter>src\Manager</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

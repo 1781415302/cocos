@@ -2,6 +2,7 @@
 #include "LevelSelectScene.h"
 #include "HelloWorldScene.h"
 #include "ui/CocosGUI.h"
+#include "managers/SaveManager.h" // 草稿 SaveManager 单例（见下方新增文件）
 
 USING_NS_CC;
 
@@ -17,6 +18,19 @@ bool LevelSelectScene::init()
     createBackground();
     createLevelButtons();
 
+    // 新增：在关卡选择页添加“读取存档”按钮（草稿）
+    auto visibleSize = Director::getInstance()->getVisibleSize();
+    auto origin = Director::getInstance()->getVisibleOrigin();
+    auto loadBtn = ui::Button::create();
+    loadBtn->setTitleText(u8"读取存档");
+    loadBtn->setTitleFontSize(28);
+    loadBtn->setAnchorPoint(Vec2(0.0f, 1.0f));
+    loadBtn->setPosition(origin + Vec2(10.0f, visibleSize.height - 10.0f));
+    loadBtn->addClickEventListener([this](Ref*) {
+        this->showSaveBrowser();
+        });
+    this->addChild(loadBtn, 1000);
+
     return true;
 }
 
@@ -31,7 +45,7 @@ void LevelSelectScene::createBackground()
         bg->setAnchorPoint(Vec2(0.5f, 0.5f));
         bg->setPosition(origin + visibleSize * 0.5f);
 
-        // 自适应缩放
+        // 适配屏幕
         auto bgSize = bg->getContentSize();
         if (bgSize.width > 0 && bgSize.height > 0)
         {
@@ -86,9 +100,154 @@ void LevelSelectScene::runSelectAnimationAndEnter(const std::string& levelId, No
         ScaleTo::create(0.08f, 1.05f),
         ScaleTo::create(0.06f, 1.0f),
         CallFunc::create([levelId]() {
-            auto scene = HelloWorld::createSceneWithLevel(levelId);
-            Director::getInstance()->replaceScene(TransitionFade::create(0.3f, scene));
+            // NOTE (草稿)：如果 SaveManager 中有 pending save path，则在进入场景后
+            // HelloWorld / GameController 需要从该路径加载存档（后续实现）。
+            Director::getInstance()->replaceScene(TransitionFade::create(0.3f, HelloWorld::createSceneWithLevel(levelId)));
             }),
         nullptr
     ));
+}
+
+// 新增：展示游戏内存档浏览器（草稿实现）
+void LevelSelectScene::showSaveBrowser()
+{
+    // 弹出半透明遮罩
+    auto visibleSize = Director::getInstance()->getVisibleSize();
+    auto origin = Director::getInstance()->getVisibleOrigin();
+
+    auto overlay = LayerColor::create(Color4B(0, 0, 0, 160));
+    overlay->setPosition(origin);
+    overlay->setName("save_browser_overlay");
+    this->addChild(overlay, 2000);
+
+    // 中央面板：使用半透明深色背景以减少视觉干扰
+    auto panel = LayerColor::create(Color4B(36, 36, 36, 230), 720, 600);
+    panel->setAnchorPoint(Vec2(0.5f, 0.5f));
+    panel->setPosition(origin + visibleSize * 0.5f);
+    panel->setName("save_browser_panel");
+    overlay->addChild(panel);
+
+    // 可选的边框线（白色半透明）
+    {
+        auto draw = DrawNode::create();
+        Vec2 rect[4];
+        rect[0] = Vec2(0, 0);
+        rect[1] = Vec2(panel->getContentSize().width, 0);
+        rect[2] = Vec2(panel->getContentSize().width, panel->getContentSize().height);
+        rect[3] = Vec2(0, panel->getContentSize().height);
+        draw->drawPolygon(rect, 4, Color4F(0, 0, 0, 0), 1.0f, Color4F(1.0f, 1.0f, 1.0f, 0.08f));
+        draw->setPosition(Vec2::ZERO);
+        panel->addChild(draw, 1);
+    }
+
+    // 标题
+    auto title = Label::createWithTTF(u8"选择存档文件", "fonts/FLjiangdouti-Regular-2.ttf", 28);
+    title->setPosition(Vec2(panel->getContentSize().width * 0.5f, panel->getContentSize().height - 36));
+    panel->addChild(title, 2);
+
+    // 列表（使用 ui::ListView）
+    auto listView = ui::ListView::create();
+    listView->setContentSize(Size(panel->getContentSize().width - 40, panel->getContentSize().height - 140));
+    listView->setAnchorPoint(Vec2(0.5f, 1.0f));
+    listView->setPosition(Vec2(panel->getContentSize().width * 0.5f, panel->getContentSize().height - 64));
+    listView->setItemsMargin(8.0f);
+    listView->setScrollBarEnabled(true);
+    panel->addChild(listView, 2);
+
+    // 获取 saves 目录下文件
+    SaveManager::getInstance().ensureSavesDirectoryExists();
+    std::vector<std::string> files = SaveManager::getInstance().listSaveFiles();
+    if (files.empty()) {
+        auto noLabel = Label::createWithSystemFont(u8"没有发现存档文件", "Arial", 22);
+        noLabel->setPosition(listView->getContentSize() * 0.5f);
+        listView->addChild(noLabel);
+    }
+    else {
+        // 每个文件做成一个 button item
+        for (const auto& fullPath : files) {
+            std::string filename = fullPath;
+            // 尝试只保留文件名（去掉目录）
+            auto pos = fullPath.find_last_of("/\\");
+            if (pos != std::string::npos) filename = fullPath.substr(pos + 1);
+
+            auto item = ui::Button::create();
+            item->setContentSize(Size(listView->getContentSize().width, 48));
+            item->setTitleText(filename);
+            item->setTitleFontSize(20);
+            item->setZoomScale(0.02f);
+            item->setUserData(nullptr); // placeholder
+            // 存储完整路径到 button 的名字字段以便回调使用
+            item->setName(fullPath);
+            listView->pushBackCustomItem(item);
+        }
+    }
+
+    // 记录当前被选择的 fullPath
+    std::string selectedFullPath;
+
+    // 点击 list 子项时高亮并记录
+    listView->addEventListener([listView, &selectedFullPath](Ref* sender, ui::ListView::EventType type) {
+        if (type == ui::ListView::EventType::ON_SELECTED_ITEM_END) {
+            ssize_t idx = listView->getCurSelectedIndex();
+            auto widget = listView->getItem(idx);
+            if (widget) {
+                selectedFullPath = widget->getName();
+                CCLOG("Selected save: %s", selectedFullPath.c_str());
+            }
+        }
+        });
+
+    // 底部按钮：打开 / 取消
+    auto openBtn = ui::Button::create();
+    openBtn->setTitleText(u8"打开");
+    openBtn->setTitleFontSize(22);
+    openBtn->setPosition(Vec2(panel->getContentSize().width * 0.5f - 100, 40));
+    panel->addChild(openBtn, 2);
+
+    auto cancelBtn = ui::Button::create();
+    cancelBtn->setTitleText(u8"取消");
+    cancelBtn->setTitleFontSize(22);
+    cancelBtn->setPosition(Vec2(panel->getContentSize().width * 0.5f + 100, 40));
+    panel->addChild(cancelBtn, 2);
+
+    // 取消关闭 overlay
+    cancelBtn->addClickEventListener([overlay](Ref*) {
+        overlay->removeFromParent();
+        });
+
+    // 打开：设置 pending 路径并进入场景（草稿：进入 level "1"，后续替换为读取实际 levelId）
+    openBtn->addClickEventListener([this, overlay, &selectedFullPath](Ref*) {
+        if (selectedFullPath.empty()) {
+            // 没选中文件：可以提示或直接关闭
+            CCLOG("No save selected");
+            overlay->removeFromParent();
+            return;
+        }
+        CCLOG("Open save: %s", selectedFullPath.c_str());
+        SaveManager::getInstance().setPendingLoadPath(selectedFullPath);
+
+        // TODO: 真实实现应解析 selectedFullPath 内的 levelId 并进入对应关卡，然后触发 loadFromSave(path)
+        // 目前草稿直接进入 level "1"
+        overlay->removeFromParent();
+        auto scene = HelloWorld::createSceneWithLevel("1");
+        Director::getInstance()->replaceScene(TransitionFade::create(0.3f, scene));
+        });
+
+    // 屏蔽底层点击，但允许 panel 内部控件接收事件：
+    // overlay 的监听器在触摸点不在 panel 内时吞掉触摸（阻止底层交互）；
+    // 当触摸点在 panel 内时返回 false，让子节点（listView、按钮等）处理事件。
+    auto swallowListener = EventListenerTouchOneByOne::create();
+    swallowListener->setSwallowTouches(true);
+    // capture panel raw pointer (it will be alive as long as overlay exists)
+    swallowListener->onTouchBegan = [panel](Touch* touch, Event* event) -> bool {
+        Vec2 touchInPanel = panel->convertToNodeSpace(touch->getLocation());
+        Rect panelRect(0, 0, panel->getContentSize().width, panel->getContentSize().height);
+        if (panelRect.containsPoint(touchInPanel)) {
+            // 在 panel 内，返回 false，事件继续传递到 panel 子节点（例如 listView item）
+            return false;
+        }
+        // 在 panel 外，吞掉触摸，阻止底下的场景接收
+        return true;
+        };
+    overlay->getEventDispatcher()->addEventListenerWithSceneGraphPriority(swallowListener, overlay);
 }

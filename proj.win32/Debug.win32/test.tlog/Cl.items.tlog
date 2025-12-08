@@ -4,6 +4,7 @@ C:\Users\17814\Documents\c++\cocos\test\Classes\configs\Loaders\LevelConfigLoade
 C:\Users\17814\Documents\c++\cocos\test\Classes\controllers\GameController.cpp;C:\Users\17814\Documents\c++\cocos\test\proj.win32\Debug.win32\GameController.obj
 C:\Users\17814\Documents\c++\cocos\test\Classes\HelloWorldScene.cpp;C:\Users\17814\Documents\c++\cocos\test\proj.win32\Debug.win32\HelloWorldScene.obj
 C:\Users\17814\Documents\c++\cocos\test\Classes\LevelSelectScene.cpp;C:\Users\17814\Documents\c++\cocos\test\proj.win32\Debug.win32\LevelSelectScene.obj
+C:\Users\17814\Documents\c++\cocos\test\Classes\managers\SaveManager.cpp;C:\Users\17814\Documents\c++\cocos\test\proj.win32\Debug.win32\SaveManager.obj
 C:\Users\17814\Documents\c++\cocos\test\Classes\models\CardModel.cpp;C:\Users\17814\Documents\c++\cocos\test\proj.win32\Debug.win32\CardModel.obj
 C:\Users\17814\Documents\c++\cocos\test\Classes\models\GameModel.cpp;C:\Users\17814\Documents\c++\cocos\test\proj.win32\Debug.win32\GameModel.obj
 C:\Users\17814\Documents\c++\cocos\test\Classes\models\UndoModel.cpp;C:\Users\17814\Documents\c++\cocos\test\proj.win32\Debug.win32\UndoModel.obj

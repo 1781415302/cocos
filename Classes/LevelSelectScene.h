@@ -17,6 +17,9 @@ private:
     void createBackground();
     void createLevelButtons();
     void runSelectAnimationAndEnter(const std::string& levelId, cocos2d::Node* targetButton);
+
+    // 新增：打开游戏内存档浏览器（草稿）
+    void showSaveBrowser();
 };
 
 #endif // LEVEL_SELECT_SCENE_H
