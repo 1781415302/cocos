@@ -237,7 +237,7 @@ void GameController::drawInitialReserveTopToHand(bool animate)
     moved->setPosition(targetPos);
     moved->setFaceUp(true);
 
-    // Reparent view to hand (use safe reparent)
+    // Reparent view to hand
     auto itv = _cardViews.find(moved->getId());
     if (itv != _cardViews.end()) {
         CardView* v = itv->second;
@@ -248,7 +248,8 @@ void GameController::drawInitialReserveTopToHand(bool animate)
             }
             Vec2 handLocal = _handNode ? _handNode->convertToNodeSpace(worldTarget) : worldTarget;
             if (v->getParent() != _handNode) {
-                reparentView(v, _handNode);
+                v->removeFromParent();
+                if (_handNode) _handNode->addChild(v);
             }
             v->setPosition(handLocal);
             v->setCardVisible(true);
@@ -534,102 +535,371 @@ void GameController::handleUndo()
     {
     case UndoModel::ActionType::DrawReserveToHand:
     {
-        // Move hand top back to reserve
+        // 把手牌顶部移回 reserve（带动画），动画完成后 model 执行并翻转到 prevFaceUp
         const auto& hand = _gameModel.getHandCards();
         if (hand.empty()) break;
         int cardId = hand.back()->getId();
 
-        ok = _gameModel.moveTopHandCardBackToReserve(action.prevPosition, action.prevStatus, action.prevVisible, action.prevFaceUp);
-        if (ok) {
-            auto itv = _cardViews.find(cardId);
-            if (itv != _cardViews.end()) {
-                CardView* v = itv->second;
-                if (v) {
-                    Vec2 worldPos = toWorld(action.prevPosition);
-                    Vec2 localPos = toLocal(_reserveNode, worldPos);
-                    if (v->getParent() != _reserveNode) {
-                        reparentView(v, _reserveNode);
+        auto itv = _cardViews.find(cardId);
+        if (itv == _cardViews.end() || !itv->second) {
+            // 回退到原有即时逻辑
+            ok = _gameModel.moveTopHandCardBackToReserve(action.prevPosition, action.prevStatus, action.prevVisible, action.prevFaceUp);
+            if (ok) {
+                auto itv2 = _cardViews.find(cardId);
+                if (itv2 != _cardViews.end()) {
+                    CardView* v = itv2->second;
+                    if (v) {
+                        Vec2 worldPos = toWorld(action.prevPosition);
+                        Vec2 localPos = toLocal(_reserveNode, worldPos);
+                        if (v->getParent() != _reserveNode) {
+                            reparentView(v, _reserveNode);
+                        }
+                        v->setPosition(localPos);
+                        v->setFaceUp(action.prevFaceUp, false);
+                        v->setVisible(action.prevVisible);
                     }
-                    v->setPosition(localPos);
-                    v->setFaceUp(action.prevFaceUp, false);
-                    v->setVisible(action.prevVisible);
-                    // reparentView already set correct click callback for reserve
                 }
             }
+            break;
         }
+
+        CardView* v = itv->second;
+        Node* currentParent = v->getParent();
+        Vec2 worldTarget = toWorld(action.prevPosition);
+
+        if (!currentParent) {
+            // fallback immediate
+            ok = _gameModel.moveTopHandCardBackToReserve(action.prevPosition, action.prevStatus, action.prevVisible, action.prevFaceUp);
+            if (ok) {
+                auto itv2 = _cardViews.find(cardId);
+                if (itv2 != _cardViews.end()) {
+                    CardView* vv = itv2->second;
+                    if (vv) {
+                        Vec2 localPos = toLocal(_reserveNode, worldTarget);
+                        if (vv->getParent() != _reserveNode) {
+                            reparentView(vv, _reserveNode);
+                        }
+                        vv->setPosition(localPos);
+                        vv->setFaceUp(action.prevFaceUp, false);
+                        vv->setVisible(action.prevVisible);
+                    }
+                }
+            }
+            break;
+        }
+
+        // 启动动画：在当前父节点坐标系内移动到目标的世界坐标对应位置
+        Vec2 localTargetForCurrentParent = currentParent->convertToNodeSpace(worldTarget);
+        _busy = true;
+        v->playMoveAnimation(localTargetForCurrentParent, _moveDuration, [this, cardId, action, worldTarget]() mutable {
+            bool okInner = _gameModel.moveTopHandCardBackToReserve(action.prevPosition, action.prevStatus, action.prevVisible, action.prevFaceUp);
+            if (!okInner) {
+                CCLOG("GameController::handleUndo(DrawReserveToHand) - model move failed for id %d", action.cardId);
+                _busy = false;
+                return;
+            }
+
+            auto itv2 = _cardViews.find(cardId);
+            if (itv2 != _cardViews.end()) {
+                CardView* vv = itv2->second;
+                if (vv) {
+                    // 重父化到 reserve 并设置位置/状态
+                    reparentView(vv, _reserveNode);
+                    Vec2 localPos = _reserveNode ? _reserveNode->convertToNodeSpace(worldTarget) : worldTarget;
+                    vv->setPosition(localPos);
+                    vv->setVisible(action.prevVisible);
+                    // 移动到 reserve 后播放翻转动画（恢复 prevFaceUp）
+                    vv->setFaceUp(action.prevFaceUp, true);
+                    // reparentView 已设置了 reserve 的点击回调
+                }
+            }
+            _busy = false;
+            });
+        ok = true;
         break;
     }
     case UndoModel::ActionType::MovePlayfieldToHand:
     {
-        // Move hand top back to original playfield slot
+        // 把手牌顶部移回原来的 playfield slot（带动画），动画后 model 执行并重父化，恢复状态
         const auto& hand = _gameModel.getHandCards();
         if (hand.empty()) break;
         int cardId = hand.back()->getId();
 
-        ok = _gameModel.moveTopHandCardToPlayfieldAt(action.playfieldIndex, action.prevPosition, action.prevStatus, action.prevVisible, action.prevFaceUp);
-        if (ok) {
-            auto itv = _cardViews.find(cardId);
-            if (itv != _cardViews.end()) {
-                CardView* v = itv->second;
-                if (v) {
-                    Vec2 worldPos = toWorld(action.prevPosition);
-                    Vec2 localPos = toLocal(_playfieldNode, worldPos);
-                    if (v->getParent() != _playfieldNode) {
-                        reparentView(v, _playfieldNode);
+        auto itv = _cardViews.find(cardId);
+        if (itv == _cardViews.end() || !itv->second) {
+            ok = _gameModel.moveTopHandCardToPlayfieldAt(action.playfieldIndex, action.prevPosition, action.prevStatus, action.prevVisible, action.prevFaceUp);
+            if (ok) {
+                auto itv2 = _cardViews.find(cardId);
+                if (itv2 != _cardViews.end()) {
+                    CardView* v = itv2->second;
+                    if (v) {
+                        Vec2 worldPos = toWorld(action.prevPosition);
+                        Vec2 localPos = toLocal(_playfieldNode, worldPos);
+                        if (v->getParent() != _playfieldNode) {
+                            reparentView(v, _playfieldNode);
+                        }
+                        v->setPosition(localPos);
+                        v->setFaceUp(action.prevFaceUp, false);
+                        v->setVisible(action.prevVisible);
+                        v->setClickCallback([this](int id) { this->handlePlayfieldCardClick(id); });
                     }
-                    v->setPosition(localPos);
-                    v->setFaceUp(action.prevFaceUp, false);
-                    v->setVisible(action.prevVisible);
-                    // reparentView already set correct click callback for playfield
+                }
+                updatePlayfieldCoverage(/*overlapAreaThreshold=*/0.0f);
+            }
+            break;
+        }
+
+        CardView* v = itv->second;
+        Node* currentParent = v->getParent();
+        Vec2 worldTarget = toWorld(action.prevPosition);
+
+        if (!currentParent) {
+            ok = _gameModel.moveTopHandCardToPlayfieldAt(action.playfieldIndex, action.prevPosition, action.prevStatus, action.prevVisible, action.prevFaceUp);
+            if (ok) {
+                auto itv2 = _cardViews.find(cardId);
+                if (itv2 != _cardViews.end()) {
+                    CardView* vv = itv2->second;
+                    if (vv) {
+                        Vec2 localPos = toLocal(_playfieldNode, worldTarget);
+                        if (vv->getParent() != _playfieldNode) {
+                            reparentView(vv, _playfieldNode);
+                        }
+                        vv->setPosition(localPos);
+                        vv->setFaceUp(action.prevFaceUp, false);
+                        vv->setVisible(action.prevVisible);
+                    }
+                }
+                updatePlayfieldCoverage(/*overlapAreaThreshold=*/0.0f);
+            }
+            break;
+        }
+
+        Vec2 localTargetForCurrentParent = currentParent->convertToNodeSpace(worldTarget);
+        _busy = true;
+        v->playMoveAnimation(localTargetForCurrentParent, _moveDuration, [this, cardId, action, worldTarget]() mutable {
+            bool okInner = _gameModel.moveTopHandCardToPlayfieldAt(action.playfieldIndex, action.prevPosition, action.prevStatus, action.prevVisible, action.prevFaceUp);
+            if (!okInner) {
+                CCLOG("GameController::handleUndo(MovePlayfieldToHand) - model move failed for id %d", action.cardId);
+                _busy = false;
+                return;
+            }
+
+            auto itv2 = _cardViews.find(cardId);
+            if (itv2 != _cardViews.end()) {
+                CardView* vv = itv2->second;
+                if (vv) {
+                    reparentView(vv, _playfieldNode);
+                    Vec2 localPos = _playfieldNode ? _playfieldNode->convertToNodeSpace(worldTarget) : worldTarget;
+                    vv->setPosition(localPos);
+                    vv->setFaceUp(action.prevFaceUp, false);
+                    vv->setVisible(action.prevVisible);
+                    vv->setClickCallback([this](int id) { this->handlePlayfieldCardClick(id); });
                 }
             }
             updatePlayfieldCoverage(/*overlapAreaThreshold=*/0.0f);
-        }
+            _busy = false;
+            });
+        ok = true;
         break;
     }
     case UndoModel::ActionType::MoveHandToPlayfield:
     {
-        // Bring card back from playfield index to hand, restoring state
-        ok = _gameModel.movePlayfieldCardToHand(action.playfieldIndex);
-        if (ok) {
+        // 原操作是 hand -> playfield，undo 要把 playfield 中对应卡片移回 hand（带动画）
+        // 在 undo 前 card 应该在 playfield 的 action.playfieldIndex 处或者可以按 action.cardId 找到 view
+        int cardId = action.cardId;
+        auto itv = _cardViews.find(cardId);
+        if (itv == _cardViews.end() || !itv->second) {
+            // fallback to immediate model change
+            ok = _gameModel.movePlayfieldCardToHand(action.playfieldIndex);
+            if (ok) {
+                const auto& hand = _gameModel.getHandCards();
+                if (!hand.empty()) {
+                    int newId = hand.back()->getId();
+                    auto card = hand.back();
+                    card->setPosition(action.prevPosition);
+                    card->setStatus(action.prevStatus);
+                    card->setVisible(action.prevVisible);
+                    card->setFaceUp(action.prevFaceUp);
+
+                    auto itv2 = _cardViews.find(newId);
+                    if (itv2 != _cardViews.end()) {
+                        CardView* v = itv2->second;
+                        if (v) {
+                            Vec2 worldPos = toWorld(action.prevPosition);
+                            Vec2 localPos = toLocal(_handNode, worldPos);
+                            if (v->getParent() != _handNode) {
+                                reparentView(v, _handNode);
+                            }
+                            v->setPosition(localPos);
+                            v->setFaceUp(action.prevFaceUp, false);
+                            v->setVisible(action.prevVisible);
+                            v->setClickCallback([](int /*cardId*/) {});
+                        }
+                    }
+                }
+                updatePlayfieldCoverage(/*overlapAreaThreshold=*/0.0f);
+            }
+            break;
+        }
+
+        // 有视图，当前父节点应是 playfield
+        CardView* v = itv->second;
+        Node* currentParent = v->getParent();
+        if (!currentParent) {
+            ok = _gameModel.movePlayfieldCardToHand(action.playfieldIndex);
+            if (ok) {
+                const auto& hand = _gameModel.getHandCards();
+                if (!hand.empty()) {
+                    int newId = hand.back()->getId();
+                    auto card = hand.back();
+                    card->setPosition(action.prevPosition);
+                    card->setStatus(action.prevStatus);
+                    card->setVisible(action.prevVisible);
+                    card->setFaceUp(action.prevFaceUp);
+
+                    auto itv2 = _cardViews.find(newId);
+                    if (itv2 != _cardViews.end()) {
+                        CardView* vv = itv2->second;
+                        if (vv) {
+                            Vec2 worldPos = toWorld(action.prevPosition);
+                            Vec2 localPos = toLocal(_handNode, worldPos);
+                            if (vv->getParent() != _handNode) {
+                                reparentView(vv, _handNode);
+                            }
+                            vv->setPosition(localPos);
+                            vv->setFaceUp(action.prevFaceUp, false);
+                            vv->setVisible(action.prevVisible);
+                        }
+                    }
+                }
+                updatePlayfieldCoverage(/*overlapAreaThreshold=*/0.0f);
+            }
+            break;
+        }
+
+        // 动画：从 playfield（当前Parent）移动到 hand 目标位置
+        Vec2 worldTarget = toWorld(action.prevPosition);
+        Vec2 localTargetForCurrentParent = currentParent->convertToNodeSpace(worldTarget);
+        _busy = true;
+        v->playMoveAnimation(localTargetForCurrentParent, _moveDuration, [this, cardId, action, worldTarget]() mutable {
+            bool okInner = _gameModel.movePlayfieldCardToHand(action.playfieldIndex);
+            if (!okInner) {
+                CCLOG("GameController::handleUndo(MoveHandToPlayfield) - model move failed for id %d", action.cardId);
+                _busy = false;
+                return;
+            }
+
             const auto& hand = _gameModel.getHandCards();
             if (!hand.empty()) {
-                int cardId = hand.back()->getId();
+                int newId = hand.back()->getId();
                 auto card = hand.back();
                 card->setPosition(action.prevPosition);
                 card->setStatus(action.prevStatus);
                 card->setVisible(action.prevVisible);
                 card->setFaceUp(action.prevFaceUp);
 
-                auto itv = _cardViews.find(cardId);
-                if (itv != _cardViews.end()) {
-                    CardView* v = itv->second;
-                    if (v) {
-                        Vec2 worldPos = toWorld(action.prevPosition);
-                        Vec2 localPos = toLocal(_handNode, worldPos);
-                        if (v->getParent() != _handNode) {
-                            reparentView(v, _handNode);
-                        }
-                        v->setPosition(localPos);
-                        v->setFaceUp(action.prevFaceUp, false);
-                        v->setVisible(action.prevVisible);
-                        // reparentView already set correct click callback for hand (no-op)
+                auto itv2 = _cardViews.find(newId);
+                if (itv2 != _cardViews.end()) {
+                    CardView* vv = itv2->second;
+                    if (vv) {
+                        reparentView(vv, _handNode);
+                        Vec2 localPos = _handNode ? _handNode->convertToNodeSpace(worldTarget) : worldTarget;
+                        vv->setPosition(localPos);
+                        vv->setFaceUp(action.prevFaceUp, false);
+                        vv->setVisible(action.prevVisible);
+                        vv->setClickCallback([](int /*cardId*/) {});
                     }
                 }
             }
             updatePlayfieldCoverage(/*overlapAreaThreshold=*/0.0f);
-        }
+            _busy = false;
+            });
+        ok = true;
         break;
     }
     case UndoModel::ActionType::MoveHandToReserve:
     {
-        // Move reserve top (the one just returned) back to hand, restoring state
+        // undo: reserve -> hand（也就是把 reserve 顶部返回到手牌），需要从 reserve 做动画到 hand
         const auto& reserve = _gameModel.getReserveCards();
         if (reserve.empty()) break;
         int cardId = reserve.back()->getId();
 
-        ok = _gameModel.drawReserveToHand();
-        if (ok) {
+        auto itv = _cardViews.find(cardId);
+        if (itv == _cardViews.end() || !itv->second) {
+            // fallback immediate draw
+            ok = _gameModel.drawReserveToHand();
+            if (ok) {
+                auto& handRef = _gameModel.getHandCards();
+                if (!handRef.empty()) {
+                    auto card = handRef.back();
+                    card->setPosition(action.prevPosition);
+                    card->setStatus(action.prevStatus);
+                    card->setVisible(action.prevVisible);
+                    card->setFaceUp(action.prevFaceUp);
+
+                    auto itv2 = _cardViews.find(cardId);
+                    if (itv2 != _cardViews.end()) {
+                        CardView* v = itv2->second;
+                        if (v) {
+                            Vec2 worldPos = toWorld(action.prevPosition);
+                            Vec2 localPos = toLocal(_handNode, worldPos);
+                            if (v->getParent() != _handNode) {
+                                reparentView(v, _handNode);
+                            }
+                            v->setPosition(localPos);
+                            v->setFaceUp(action.prevFaceUp, false);
+                            v->setVisible(action.prevVisible);
+                        }
+                    }
+                }
+            }
+            break;
+        }
+
+        CardView* v = itv->second;
+        Node* currentParent = v->getParent();
+        if (!currentParent) {
+            ok = _gameModel.drawReserveToHand();
+            if (ok) {
+                auto& handRef = _gameModel.getHandCards();
+                if (!handRef.empty()) {
+                    auto card = handRef.back();
+                    card->setPosition(action.prevPosition);
+                    card->setStatus(action.prevStatus);
+                    card->setVisible(action.prevVisible);
+                    card->setFaceUp(action.prevFaceUp);
+
+                    auto itv2 = _cardViews.find(cardId);
+                    if (itv2 != _cardViews.end()) {
+                        CardView* vv = itv2->second;
+                        if (vv) {
+                            Vec2 worldPos = toWorld(action.prevPosition);
+                            Vec2 localPos = toLocal(_handNode, worldPos);
+                            if (vv->getParent() != _handNode) {
+                                reparentView(vv, _handNode);
+                            }
+                            vv->setPosition(localPos);
+                            vv->setFaceUp(action.prevFaceUp, false);
+                            vv->setVisible(action.prevVisible);
+                        }
+                    }
+                }
+            }
+            break;
+        }
+
+        // 动画：从 reserve 当前父节点移动到 hand 目标位置
+        Vec2 worldTarget = toWorld(action.prevPosition);
+        Vec2 localTargetForCurrentParent = currentParent->convertToNodeSpace(worldTarget);
+        _busy = true;
+        v->playMoveAnimation(localTargetForCurrentParent, _moveDuration, [this, cardId, action, worldTarget]() mutable {
+            bool okInner = _gameModel.drawReserveToHand();
+            if (!okInner) {
+                CCLOG("GameController::handleUndo(MoveHandToReserve) - model draw failed for id %d", action.cardId);
+                _busy = false;
+                return;
+            }
+
             auto& handRef = _gameModel.getHandCards();
             if (!handRef.empty()) {
                 auto card = handRef.back();
@@ -638,23 +908,22 @@ void GameController::handleUndo()
                 card->setVisible(action.prevVisible);
                 card->setFaceUp(action.prevFaceUp);
 
-                auto itv = _cardViews.find(cardId);
-                if (itv != _cardViews.end()) {
-                    CardView* v = itv->second;
-                    if (v) {
-                        Vec2 worldPos = toWorld(action.prevPosition);
-                        Vec2 localPos = toLocal(_handNode, worldPos);
-                        if (v->getParent() != _handNode) {
-                            reparentView(v, _handNode);
-                        }
-                        v->setPosition(localPos);
-                        v->setFaceUp(action.prevFaceUp, false);
-                        v->setVisible(action.prevVisible);
-                        // reparentView already set correct click callback for hand (no-op)
+                auto itv2 = _cardViews.find(cardId);
+                if (itv2 != _cardViews.end()) {
+                    CardView* vv = itv2->second;
+                    if (vv) {
+                        reparentView(vv, _handNode);
+                        Vec2 localPos = _handNode ? _handNode->convertToNodeSpace(worldTarget) : worldTarget;
+                        vv->setPosition(localPos);
+                        vv->setFaceUp(action.prevFaceUp, false);
+                        vv->setVisible(action.prevVisible);
+                        vv->setClickCallback([](int /*cardId*/) {});
                     }
                 }
             }
-        }
+            _busy = false;
+            });
+        ok = true;
         break;
     }
     case UndoModel::ActionType::FlipHandTopFaceUp:
