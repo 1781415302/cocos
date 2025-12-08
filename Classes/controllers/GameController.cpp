@@ -237,7 +237,7 @@ void GameController::drawInitialReserveTopToHand(bool animate)
     moved->setPosition(targetPos);
     moved->setFaceUp(true);
 
-    // Reparent view to hand
+    // Reparent view to hand (use safe reparent)
     auto itv = _cardViews.find(moved->getId());
     if (itv != _cardViews.end()) {
         CardView* v = itv->second;
@@ -248,8 +248,7 @@ void GameController::drawInitialReserveTopToHand(bool animate)
             }
             Vec2 handLocal = _handNode ? _handNode->convertToNodeSpace(worldTarget) : worldTarget;
             if (v->getParent() != _handNode) {
-                v->removeFromParent();
-                if (_handNode) _handNode->addChild(v);
+                reparentView(v, _handNode);
             }
             v->setPosition(handLocal);
             v->setCardVisible(true);
@@ -384,15 +383,14 @@ void GameController::animatePlayfieldCardToHand(int playfieldIndex, int cardId)
         moved->setPosition(targetPos);
         moved->setFaceUp(true);
 
-        // Reparent view to hand
+        // Reparent view to hand (safe)
         auto itv = _cardViews.find(moved->getId());
         if (itv != _cardViews.end()) {
             CardView* v = itv->second;
             if (v) {
                 Vec2 handLocal = _handNode ? _handNode->convertToNodeSpace(worldTarget) : worldTarget;
                 if (v->getParent() != _handNode) {
-                    v->removeFromParent();
-                    if (_handNode) _handNode->addChild(v);
+                    reparentView(v, _handNode);
                 }
                 v->setPosition(handLocal);
                 v->setCardVisible(true);
@@ -492,8 +490,7 @@ void GameController::animateReserveTopToHand()
                 if (v) {
                     Vec2 handLocal = _handNode ? _handNode->convertToNodeSpace(worldTarget) : worldTarget;
                     if (v->getParent() != _handNode) {
-                        v->removeFromParent();
-                        if (_handNode) _handNode->addChild(v);
+                        reparentView(v, _handNode);
                     }
                     v->setPosition(handLocal);
                     v->setCardVisible(true);
@@ -551,8 +548,7 @@ void GameController::handleUndo()
                     Vec2 worldPos = toWorld(action.prevPosition);
                     Vec2 localPos = toLocal(_reserveNode, worldPos);
                     if (v->getParent() != _reserveNode) {
-                        v->removeFromParent();
-                        if (_reserveNode) _reserveNode->addChild(v);
+                        reparentView(v, _reserveNode);
                     }
                     v->setPosition(localPos);
                     v->setFaceUp(action.prevFaceUp, false);
@@ -581,8 +577,7 @@ void GameController::handleUndo()
                     Vec2 worldPos = toWorld(action.prevPosition);
                     Vec2 localPos = toLocal(_playfieldNode, worldPos);
                     if (v->getParent() != _playfieldNode) {
-                        v->removeFromParent();
-                        if (_playfieldNode) _playfieldNode->addChild(v);
+                        reparentView(v, _playfieldNode);
                     }
                     v->setPosition(localPos);
                     v->setFaceUp(action.prevFaceUp, false);
@@ -617,8 +612,7 @@ void GameController::handleUndo()
                         Vec2 worldPos = toWorld(action.prevPosition);
                         Vec2 localPos = toLocal(_handNode, worldPos);
                         if (v->getParent() != _handNode) {
-                            v->removeFromParent();
-                            if (_handNode) _handNode->addChild(v);
+                            reparentView(v, _handNode);
                         }
                         v->setPosition(localPos);
                         v->setFaceUp(action.prevFaceUp, false);
@@ -655,8 +649,7 @@ void GameController::handleUndo()
                         Vec2 worldPos = toWorld(action.prevPosition);
                         Vec2 localPos = toLocal(_handNode, worldPos);
                         if (v->getParent() != _handNode) {
-                            v->removeFromParent();
-                            if (_handNode) _handNode->addChild(v);
+                            reparentView(v, _handNode);
                         }
                         v->setPosition(localPos);
                         v->setFaceUp(action.prevFaceUp, false);
@@ -734,4 +727,19 @@ void GameController::repositionUndoToRightOfHand(float spacing)
     // Convert back to parent-local coords and set position
     Vec2 parentLocal = _parentNode->convertToNodeSpace(worldPos);
     _undoView->setPosition(parentLocal);
+}
+
+// ----------------- 新增：安全 reparent 实现 -----------------
+void GameController::reparentView(CardView* v, Node* newParent)
+{
+    if (!v) return;
+    if (v->getParent() == newParent) return;
+
+    // 保证在 removeFromParent 期间对象不会被销毁
+    v->retain();
+    v->removeFromParent();
+    if (newParent) {
+        newParent->addChild(v);
+    }
+    v->release();
 }

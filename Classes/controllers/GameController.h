@@ -1,12 +1,11 @@
-﻿#ifndef GameController_h
-#define GameController_h
+﻿#pragma once
 
 #include "cocos2d.h"
 #include "models/GameModel.h"
 #include "models/UndoModel.h"
 #include "views/CardView.h"
 #include "configs/LevelConfig.h"
-#include "views/UndoView.h" // <- 确保包含 UndoView 的头
+#include "views/UndoView.h"
 #include <unordered_map>
 #include <memory>
 #include <string>
@@ -18,7 +17,7 @@
  * - Load level config, build view + model
  * - Manage playfield / reserve / hand
  */
-    class GameController
+class GameController
 {
 public:
     explicit GameController(cocos2d::Node* parentNode);
@@ -64,6 +63,9 @@ private:
     // Reposition undo button to the right of hand top
     void repositionUndoToRightOfHand(float spacing = 16.0f);
 
+    // Safely reparent a CardView between nodes, avoiding immediate deletion
+    void reparentView(CardView* v, cocos2d::Node* newParent);
+
 private:
     cocos2d::Node* _parentNode = nullptr;
 
@@ -82,8 +84,6 @@ private:
 
     cocos2d::Vec2 _defaultHandPosition = cocos2d::Vec2(540.0f, 200.0f);
 
-    // Undo button view (指针类型正确声明)
+    // Undo button view
     UndoView* _undoView = nullptr;
 };
-
-#endif // GameController_h
