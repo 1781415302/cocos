@@ -63,7 +63,8 @@ private:
     // Reposition undo button to the right of hand top
     void repositionUndoToRightOfHand(float spacing = 16.0f);
 
-    // Safely reparent a CardView between nodes, avoiding immediate deletion
+    // Safely reparent a CardView between nodes, avoiding immediate deletion,
+    // and ensure its click callback is set appropriately for the destination.
     void reparentView(CardView* v, cocos2d::Node* newParent);
 
 private:

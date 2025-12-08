@@ -129,7 +129,7 @@ void GameController::createViewsFromModel()
         _cardViews[cardPtr->getId()] = v;
 
         v->setClickCallback([this](int /*cardId*/) {
-            // no-op
+            // no-op for hand
             });
 
         v->setCardVisible(cardPtr->isFaceUp());
@@ -553,9 +553,7 @@ void GameController::handleUndo()
                     v->setPosition(localPos);
                     v->setFaceUp(action.prevFaceUp, false);
                     v->setVisible(action.prevVisible);
-                    v->setClickCallback([this](int /*cardId*/) {
-                        this->handleReserveClick();
-                        });
+                    // reparentView already set correct click callback for reserve
                 }
             }
         }
@@ -582,9 +580,7 @@ void GameController::handleUndo()
                     v->setPosition(localPos);
                     v->setFaceUp(action.prevFaceUp, false);
                     v->setVisible(action.prevVisible);
-                    v->setClickCallback([this](int id) {
-                        this->handlePlayfieldCardClick(id);
-                        });
+                    // reparentView already set correct click callback for playfield
                 }
             }
             updatePlayfieldCoverage(/*overlapAreaThreshold=*/0.0f);
@@ -617,7 +613,7 @@ void GameController::handleUndo()
                         v->setPosition(localPos);
                         v->setFaceUp(action.prevFaceUp, false);
                         v->setVisible(action.prevVisible);
-                        v->setClickCallback([](int /*cardId*/) {});
+                        // reparentView already set correct click callback for hand (no-op)
                     }
                 }
             }
@@ -654,7 +650,7 @@ void GameController::handleUndo()
                         v->setPosition(localPos);
                         v->setFaceUp(action.prevFaceUp, false);
                         v->setVisible(action.prevVisible);
-                        v->setClickCallback([](int /*cardId*/) {});
+                        // reparentView already set correct click callback for hand (no-op)
                     }
                 }
             }
@@ -733,7 +729,9 @@ void GameController::repositionUndoToRightOfHand(float spacing)
 void GameController::reparentView(CardView* v, Node* newParent)
 {
     if (!v) return;
-    if (v->getParent() == newParent) return;
+    if (v->getParent() == newParent) {
+        // Still ensure callback is correct for this parent
+    }
 
     // 保证在 removeFromParent 期间对象不会被销毁
     v->retain();
@@ -742,4 +740,26 @@ void GameController::reparentView(CardView* v, Node* newParent)
         newParent->addChild(v);
     }
     v->release();
+
+    // 根据目标父节点设置合适的点击回调
+    if (newParent == _handNode) {
+        // Hand: no-op
+        v->setClickCallback([](int /*cardId*/) {});
+    }
+    else if (newParent == _reserveNode) {
+        // Reserve: clicking reserve triggers reserve draw
+        v->setClickCallback([this](int /*cardId*/) {
+            this->handleReserveClick();
+            });
+    }
+    else if (newParent == _playfieldNode) {
+        // Playfield: clicking a playfield card passes its id
+        v->setClickCallback([this](int id) {
+            this->handlePlayfieldCardClick(id);
+            });
+    }
+    else {
+        // Unknown parent: clear to be safe
+        v->setClickCallback([](int /*cardId*/) {});
+    }
 }

@@ -8,12 +8,12 @@
 #include <functional> // For std::function
 #include <memory>
 
-// 前向声明
+// 前置声明
 class CardModel;
 
 /**
  * @brief 卡牌视图
- * @details 卡牌视图负责呈现一张牌的正/背面、触摸、移动动画等
+ * @details 卡牌视图负责显示单张牌的正面/背面、播放移动动画，并响应点击事件。
  */
 class CardView : public cocos2d::Node
 {
@@ -22,11 +22,11 @@ public:
 
     bool init(const std::shared_ptr<CardModel>& cardModel);
 
-    // 切换显示正/背面（animate=true 做简单翻转动画）
+    // 切换正/反面，animate=true 时播放翻转动画
     void setFaceUp(bool faceUp, bool animate = true);
     bool isFaceUp() const;
 
-    // 兼容旧接口：根据模型状态显示/隐藏（仍保留）
+    // 根据模型状态显示/隐藏（对于本项目，visible 表示是否显示为“正面”）
     void setCardVisible(bool visible);
 
     int getCardId() const;
@@ -34,35 +34,42 @@ public:
     CardSuitType getCardSuit() const;
     cocos2d::Vec2 getCurrentPosition() const;
 
+    // 播放移动动画，完成后调用回调（可空）
     void playMoveAnimation(cocos2d::Vec2 targetPos, float duration, std::function<void()> completionCallback = nullptr);
     void playReverseMoveAnimation(cocos2d::Vec2 targetPos, float duration, std::function<void()> completionCallback = nullptr);
 
+    // 设置点击回调：参数为 cardId
     void setClickCallback(std::function<void(int)> callback);
 
 private:
-    // weak_ptr 避免生命周期依赖
+    // card model 使用 weak_ptr 引用，视图不拥有模型生命周期
     std::weak_ptr<CardModel> _cardModel;
-    cocos2d::Node* _frontNode = nullptr; ///< 正面（compound node）
-    cocos2d::Sprite* _backSprite = nullptr; ///< 背面精灵
+    cocos2d::Node* _frontNode = nullptr;   ///< 正面组合节点（背景 + 数字 + 花色）
+    cocos2d::Sprite* _backSprite = nullptr;///< 背面图片
     std::function<void(int)> _clickCallback;
 
     bool _isFaceUp = false;
 
-    // 创建正面组合视图（background + big number + small number + suit）
+    // 将触摸监听器保存为成员，便于在 onEnter/onExit 管理
+    cocos2d::EventListenerTouchOneByOne* _touchListener = nullptr;
+
+    // 创建正面子节点（背景 + 大数字 + 小数字 + 花色）
     cocos2d::Node* createFrontNode(CardFaceType faceType, CardSuitType suitType);
 
-    // 资源文件名生成
+    // 资源文件名构造
     std::string bigNumberFilename(CardFaceType face, CardSuitType suit) const;
     std::string smallNumberFilename(CardFaceType face, CardSuitType suit) const;
     std::string suitFilename(CardSuitType suit) const;
     std::string cardBackFilename() const;
     std::string cardGeneralFilename() const;
 
-    // 触摸回调
+    // 触摸回调实现
     bool onTouchBegan(cocos2d::Touch* touch, cocos2d::Event* event);
     void onTouchEnded(cocos2d::Touch* touch, cocos2d::Event* event);
     void onTouchCancelled(cocos2d::Touch* touch, cocos2d::Event* event);
 
+    // 在 onEnter 中创建并注册触摸监听器；在 onExit 中移除监听器
+    virtual void onEnter() override;
     virtual void onExit() override;
 };
 

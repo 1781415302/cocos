@@ -36,23 +36,22 @@ bool CardView::init(const std::shared_ptr<CardModel>& cardModel)
     CardFaceType face = modelLock->getCardFace();
     CardSuitType suit = modelLock->getCardSuit();
 
-    // 创建前面节点（点数和花色）
+    // 创建正面节点（包含数字和花色）
     _frontNode = createFrontNode(face, suit);
     if (!_frontNode) {
-        // 兜底：创建空节点
+        // 如果创建失败，使用空节点占位
         _frontNode = Node::create();
     }
 
-    // 加载卡背图片（Resources 目录下的 card_back.png）
+    // 创建背面图
     _backSprite = Sprite::create(cardBackFilename());
     if (!_backSprite) {
         CCLOG("CardView::init - failed to load '%s', using placeholder", cardBackFilename().c_str());
         _backSprite = Sprite::create();
     }
 
-    // 根据 front 或 back 的大小来设置 contentSize
+    // 根据 front 或 back 的尺寸确定 contentSize
     Size contentSz = Size::ZERO;
-    // 如果 front 的第一个子节点是 Sprite，则尝试使用其 size
     if (_frontNode->getChildrenCount() > 0) {
         Node* first = _frontNode->getChildren().front();
         if (auto sp = dynamic_cast<Sprite*>(first)) {
@@ -67,34 +66,28 @@ bool CardView::init(const std::shared_ptr<CardModel>& cardModel)
     }
     setContentSize(contentSz);
 
-    // 将 back/front 添加到节点并居中
+    // 将 front/back 添加为子节点并居中
     _backSprite->setPosition(getContentSize() * 0.5f);
     _frontNode->setPosition(getContentSize() * 0.5f);
     addChild(_backSprite);
     addChild(_frontNode);
 
-    // 根据 model 的状态初始化正反面显示（不做动画）
+    // 根据模型状态初始化正反面显示
     _isFaceUp = (modelLock->getStatus() != CardStatus::COVERED);
-    //setFaceUp(_isFaceUp, false);
     if (!_isFaceUp) {
-		_backSprite->setVisible(true);  
-		_frontNode->setVisible(false);
+        _backSprite->setVisible(true);
+        _frontNode->setVisible(false);
     }
     else {
-		_backSprite->setVisible(false);
-		_frontNode->setVisible(true);
+        _backSprite->setVisible(false);
+        _frontNode->setVisible(true);
     }
 
-    // 将视图初始位置设置为 model 中的 position
+    // 设置初始位置为模型中记录的位置
     setPosition(modelLock->getPosition());
 
-    // 触摸事件监听器
-    auto listener = EventListenerTouchOneByOne::create();
-    listener->setSwallowTouches(true);
-    listener->onTouchBegan = CC_CALLBACK_2(CardView::onTouchBegan, this);
-    listener->onTouchEnded = CC_CALLBACK_2(CardView::onTouchEnded, this);
-    listener->onTouchCancelled = CC_CALLBACK_2(CardView::onTouchCancelled, this);
-    getEventDispatcher()->addEventListenerWithSceneGraphPriority(listener, this);
+    // 注意：不要在 init 中注册触摸监听器，因为重父化（remove/add）会触发 onExit/onEnter，
+    // 如果在 init 注册则在重加时不会自动恢复监听器。监听器在 onEnter 中注册，在 onExit 中移除。
 
     return true;
 }
@@ -119,25 +112,21 @@ std::string CardView::suitFilename(CardSuitType suit) const
     }
 }
 
-// 将 CardFaceType 映射为显示字符串："A","2",...,"10","J","Q","K"
-// 对应 CardEnums.h 中的枚举：CFT_ACE=0, CFT_TWO=1, ..., CFT_TEN=9, CFT_JACK=10, CFT_QUEEN=11, CFT_KING=12
+// 将 CardFaceType 转为显示字符串 "A","2",...,"10","J","Q","K"
 static std::string faceToStr(CardFaceType face) {
     int v = static_cast<int>(face);
     if (v == 0) return "A";
     if (v >= 1 && v <= 9) {
-        // CFT_TWO (1) -> "2", ..., CFT_TEN (9) -> "10"
         return std::to_string(v + 1);
     }
     if (v == 10) return "J";
     if (v == 11) return "Q";
     if (v == 12) return "K";
-    // 非法值返回空字符串，上层会处理资源缺失情况
     return "";
 }
 
 std::string CardView::bigNumberFilename(CardFaceType face, CardSuitType suit) const
 {
-    // big_red_A.png / big_black_2.png 等
     bool isRed = (suit == CardSuitType::CST_DIAMONDS || suit == CardSuitType::CST_HEARTS);
     std::string color = isRed ? "big_red_" : "big_black_";
     std::string key = faceToStr(face);
@@ -169,12 +158,11 @@ Node* CardView::createFrontNode(CardFaceType faceType, CardSuitType suitType)
 
     Size bgSize = bg->getContentSize();
     if (bgSize.width <= 0 || bgSize.height <= 0) {
-        // 背景尺寸无效，使用默认值并设置到背景 Sprite
         bgSize = Size(150.0f, 200.0f);
         bg->setContentSize(bgSize);
     }
 
-    // 大号数字
+    // 大数字
     std::string bigFile = bigNumberFilename(faceType, suitType);
     Sprite* bigNum = nullptr;
     if (!bigFile.empty()) {
@@ -186,13 +174,12 @@ Node* CardView::createFrontNode(CardFaceType faceType, CardSuitType suitType)
         }
     }
     if (!bigNum) {
-        // 若图片缺失，使用占位 Sprite（空）
         bigNum = Sprite::create();
     }
     bigNum->setPosition(0, 0);
     front->addChild(bigNum);
 
-    // 小号数字（左上角）
+    // 小数字
     std::string smallFile = smallNumberFilename(faceType, suitType);
     Sprite* smallNum = nullptr;
     if (!smallFile.empty()) {
@@ -204,11 +191,11 @@ Node* CardView::createFrontNode(CardFaceType faceType, CardSuitType suitType)
         }
     }
     if (!smallNum) smallNum = Sprite::create();
-    smallNum->setAnchorPoint(Vec2(0, 1)); // 锚点左上
+    smallNum->setAnchorPoint(Vec2(0, 1));
     smallNum->setPosition(-bgSize.width * 0.45f, bgSize.height * 0.45f);
     front->addChild(smallNum);
 
-    // 花色图标（右上角）
+    // 花色图标
     std::string suitFile = suitFilename(suitType);
     Sprite* suitSp = nullptr;
     if (!suitFile.empty()) {
@@ -220,11 +207,10 @@ Node* CardView::createFrontNode(CardFaceType faceType, CardSuitType suitType)
         }
     }
     if (!suitSp) suitSp = Sprite::create();
-    suitSp->setAnchorPoint(Vec2(1, 1)); // 锚点右上
+    suitSp->setAnchorPoint(Vec2(1, 1));
     suitSp->setPosition(bgSize.width * 0.45f, bgSize.height * 0.45f);
     front->addChild(suitSp);
 
-    // 设置 front 的 contentSize 为背景大小
     front->setContentSize(bgSize);
 
     return front;
@@ -232,18 +218,15 @@ Node* CardView::createFrontNode(CardFaceType faceType, CardSuitType suitType)
 
 void CardView::setFaceUp(bool faceUp, bool animate)
 {
-    // 状态相同时直接返回
     if (_isFaceUp == faceUp) return;
     _isFaceUp = faceUp;
 
-    // 如果不动画，直接切换可见性
     if (!animate) {
         _frontNode->setVisible(faceUp);
         _backSprite->setVisible(!faceUp);
         return;
     }
 
-    // 通过缩放 X 轴实现翻转动画（1->0, 切换可见性, 0->1）
     float half = 0.15f;
     auto shrink = ScaleTo::create(half, 0.0f, 1.0f);
     auto expand = ScaleTo::create(half, 1.0f, 1.0f);
@@ -262,7 +245,6 @@ bool CardView::isFaceUp() const
 
 void CardView::setCardVisible(bool visible)
 {
-    // visible 表示显示正面
     setFaceUp(visible, true);
 }
 
@@ -344,11 +326,34 @@ void CardView::onTouchEnded(Touch* touch, Event* event)
 
 void CardView::onTouchCancelled(Touch* touch, Event* event)
 {
-    // 暂无处理
+    // 不做额外处理
+}
+
+// 在 onEnter 中创建并注册触摸监听器；在 onExit 中移除（保证重父化时会被正确重建）
+void CardView::onEnter()
+{
+    Node::onEnter();
+
+    if (!_touchListener) {
+        auto listener = EventListenerTouchOneByOne::create();
+        listener->setSwallowTouches(true);
+        listener->onTouchBegan = CC_CALLBACK_2(CardView::onTouchBegan, this);
+        listener->onTouchEnded = CC_CALLBACK_2(CardView::onTouchEnded, this);
+        listener->onTouchCancelled = CC_CALLBACK_2(CardView::onTouchCancelled, this);
+        _touchListener = listener;
+        getEventDispatcher()->addEventListenerWithSceneGraphPriority(listener, this);
+    }
 }
 
 void CardView::onExit()
 {
-    getEventDispatcher()->removeEventListenersForTarget(this);
+    if (_touchListener) {
+        getEventDispatcher()->removeEventListener(_touchListener);
+        _touchListener = nullptr;
+    }
+    else {
+        // 额外保险：移除所有与该 target 关联的 listener（防止外部意外添加）
+        getEventDispatcher()->removeEventListenersForTarget(this);
+    }
     Node::onExit();
 }
