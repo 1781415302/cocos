@@ -10,6 +10,10 @@
 #include <memory>
 #include <string>
 
+// managers
+#include "managers/GameManager.h"
+#include "managers/UndoManager.h"
+
 class SaveManager;
 
 class GameController
@@ -57,7 +61,12 @@ private:
     GameModel _gameModel;
     UndoModel _undoModel;
 
+    // cardId -> view
     std::unordered_map<int, CardView*> _cardViews;
+
+    // Managers (use unique_ptr so we can construct after _gameModel is set)
+    std::unique_ptr<GameManager> _gameManager;
+    std::unique_ptr<UndoManager> _undoManager;
 
     bool _busy = false;
 

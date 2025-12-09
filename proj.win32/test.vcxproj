@@ -156,7 +156,9 @@ xcopy "$(ProjectDir)..\Resources" "$(OutDir)\Resources\" /D /E /I /F /Y
     <ClCompile Include="..\Classes\controllers\GameController.cpp" />
     <ClCompile Include="..\Classes\HelloWorldScene.cpp" />
     <ClCompile Include="..\Classes\LevelSelectScene.cpp" />
+    <ClCompile Include="..\Classes\managers\GameManager.cpp" />
     <ClCompile Include="..\Classes\managers\SaveManager.cpp" />
+    <ClCompile Include="..\Classes\managers\UndoManager.cpp" />
     <ClCompile Include="..\Classes\models\CardModel.cpp" />
     <ClCompile Include="..\Classes\models\GameModel.cpp" />
     <ClCompile Include="..\Classes\models\UndoModel.cpp" />
@@ -172,6 +174,7 @@ xcopy "$(ProjectDir)..\Resources" "$(OutDir)\Resources\" /D /E /I /F /Y
     <ClInclude Include="..\Classes\controllers\GameController.h" />
     <ClInclude Include="..\Classes\HelloWorldScene.h" />
     <ClInclude Include="..\Classes\LevelSelectScene.h" />
+    <ClInclude Include="..\Classes\managers\GameManager.h" />
     <ClInclude Include="..\Classes\managers\SaveManager.h" />
     <ClInclude Include="..\Classes\managers\UndoManager.h" />
     <ClInclude Include="..\Classes\models\CardModel.h" />

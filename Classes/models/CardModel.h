@@ -19,13 +19,14 @@ enum class CardStatus {
 };
 
 /**
- * @brief 卡牌数据模型
- * @details 存储卡牌的ID、花色、点数、位置和状态等运行时信息。
+ * @brief 卡牌数据模型（纯数据）
+ * @details 该类仅包含数据字段与简单访问器，不包含复杂业务逻辑或对其他模型的修改。
  */
 class CardModel
 {
 public:
     // --- 构造函数 ---
+    CardModel() = default;
     CardModel(int id, CardFaceType faceType, CardSuitType suitType, cocos2d::Vec2 position, CardStatus status = CardStatus::COVERED);
     CardModel(CardSuitType suitType, CardFaceType faceType, cocos2d::Vec2 position, bool isFaceUp = false);
 
@@ -35,6 +36,9 @@ public:
 
     CardFaceType getCardFace() const;
     CardSuitType getCardSuit() const;
+    void setCardFace(CardFaceType face);
+    void setCardSuit(CardSuitType suit);
+
     cocos2d::Vec2 getPosition() const;
     CardStatus getStatus() const;
 
@@ -47,16 +51,16 @@ public:
     void setPosition(cocos2d::Vec2 pos);
     void setStatus(CardStatus status);
 
-    // 序列化 / 反序列化
+    // 序列化 / 反序列化（成员函数，避免依赖 ADL 在其它翻译单元不可见）
     json toJson() const;
     static CardModel fromJson(const json& j);
 
 private:
     int _id = -1;
-    CardFaceType _cardFace;
-    CardSuitType _cardSuit;
-    cocos2d::Vec2 _position;
-    CardStatus _status;
+    CardFaceType _cardFace = static_cast<CardFaceType>(0);
+    CardSuitType _cardSuit = static_cast<CardSuitType>(0);
+    cocos2d::Vec2 _position{ 0,0 };
+    CardStatus _status = CardStatus::COVERED;
     bool _visible = true;
 };
 

@@ -14,6 +14,11 @@ using json = nlohmann::json;
 
 class GameModel;
 
+/**
+ * UndoModel 仅负责保存 action stack（用于序列化/恢复）。
+ * 不包含“如何将 action 应用到 GameModel”这样的业务逻辑。
+ * 具体的 apply 操作应由 UndoManager（managers 层）或 Controller 执行。
+ */
 class UndoModel
 {
 public:
@@ -46,13 +51,12 @@ public:
     bool pop(Action& outAction);
     void clear();
     size_t size() const;
-    bool applyLast(GameModel& model);
 
     // Serialization
     json toJson() const;
     static UndoModel fromJson(const json& j);
 
-    // helpers
+    // helpers: 工厂函数仅用于构造 action（仅捕获数据快照）
     static Action makeDrawReserveToHand(const CardModel& cardBefore);
     static Action makeMovePlayfieldToHand(const CardModel& cardBefore, int playfieldIndex);
     static Action makeMoveHandToPlayfield(const CardModel& cardBefore, int playfieldIndex);

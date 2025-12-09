@@ -42,6 +42,29 @@ GameController::~GameController()
         _undoView->removeFromParent();
     }
     _undoView = nullptr;
+
+    // ensure managers destroyed
+    _gameManager.reset();
+    _undoManager.reset();
+}
+
+bool GameController::loadFromSave(const std::string& savePath)
+{
+    if (savePath.empty()) {
+        CCLOG("GameController::loadFromSave - empty savePath");
+        return false;
+    }
+
+    // Use SaveManager to load into _gameModel and _undoModel
+    bool ok = SaveManager::getInstance().loadGameFromFile(savePath, _gameModel, _undoModel);
+    if (!ok) {
+        CCLOG("GameController::loadFromSave - failed to load save from %s", savePath.c_str());
+        return false;
+    }
+
+    // Clear view cache - startGame will recreate views
+    _cardViews.clear();
+    return true;
 }
 
 void GameController::startGame(const std::string& levelId, const std::string& optionalSavePath)
@@ -53,6 +76,10 @@ void GameController::startGame(const std::string& levelId, const std::string& op
         // Try load from save
         bool ok = loadFromSave(optionalSavePath);
         if (ok) {
+            // create managers after model loaded
+            _gameManager = std::make_unique<GameManager>(_gameModel, &_undoModel);
+            _undoManager = std::make_unique<UndoManager>(_gameModel, _undoModel);
+
             // set active save path so later saves go to it
             SaveManager::getInstance().setActiveSavePath(optionalSavePath);
             // Build views from loaded model
@@ -75,6 +102,10 @@ void GameController::startGame(const std::string& levelId, const std::string& op
     // 1) Load level config and generate new model (existing behavior)
     LevelConfig config = LevelConfigLoader::loadLevelConfig(levelId);
     _gameModel = GameModelFromLevelGenerator::generateGameModel(config);
+
+    // create managers after model generated
+    _gameManager = std::make_unique<GameManager>(_gameModel, &_undoModel);
+    _undoManager = std::make_unique<UndoManager>(_gameModel, _undoModel);
 
     // create views and initial draw
     createViewsFromModel();
@@ -242,7 +273,12 @@ void GameController::drawInitialReserveTopToHand(bool animate)
     const auto& reserve = _gameModel.getReserveCards();
     if (reserve.empty()) return;
 
-    bool ok = _gameModel.drawReserveToHand();
+    if (!_gameManager) {
+        CCLOG("GameController::drawInitialReserveTopToHand - game manager not initialized");
+        return;
+    }
+
+    bool ok = _gameManager->drawReserveToHand();
     if (!ok) return;
 
     const auto& handRef = _gameModel.getHandCards();
@@ -252,7 +288,7 @@ void GameController::drawInitialReserveTopToHand(bool animate)
 
     // Position in design-space
     Vec2 targetPos = _defaultHandPosition;
-    if (!handRef.empty() && handRef.size() > 1) {
+    if (handRef.size() > 1) {
         targetPos = handRef[handRef.size() - 2]->getPosition();
     }
     moved->setPosition(targetPos);
@@ -285,17 +321,20 @@ void GameController::drawInitialReserveTopToHand(bool animate)
 
 int GameController::findPlayfieldIndexByCardId(int cardId) const
 {
-    return _gameModel.findPlayfieldIndexById(cardId);
+    if (_gameManager) return _gameManager->findPlayfieldIndexById(cardId);
+    return -1;
 }
 
 int GameController::findReserveIndexByCardId(int cardId) const
 {
-    return _gameModel.findReserveIndexById(cardId);
+    if (_gameManager) return _gameManager->findReserveIndexById(cardId);
+    return -1;
 }
 
 int GameController::findHandIndexByCardId(int cardId) const
 {
-    return _gameModel.findHandIndexById(cardId);
+    if (_gameManager) return _gameManager->findHandIndexById(cardId);
+    return -1;
 }
 
 bool GameController::facesAreAdjacent(CardFaceType a, CardFaceType b) const
@@ -328,12 +367,14 @@ void GameController::handlePlayfieldCardClick(int cardId)
     }
 
     // Check hand top can match
-    if (!_gameModel.canMatchWithHandTop()) {
+    if (!_gameManager || !_gameManager->canMatchWithHandTop()) {
         CCLOG("GameController::handlePlayfieldCardClick - no matching hand top");
         return;
     }
 
-    auto handTop = _gameModel.getHandCards().back();
+    const auto& hand = _gameModel.getHandCards();
+    if (hand.empty()) return;
+    auto handTop = hand.back();
     if (!handTop) return;
 
     if (!facesAreAdjacent(cardPtr->getCardFace(), handTop->getCardFace())) {
@@ -383,8 +424,13 @@ void GameController::animatePlayfieldCardToHand(int playfieldIndex, int cardId)
     // Play animation in current parent's coords, then mutate model and reparent into hand
     _busy = true;
     view->playMoveAnimation(localTargetForCurrentParent, _moveDuration, [this, playfieldIndex, cardId, worldTarget, targetPos, undoAction]() mutable {
-        // After animation: update model
-        bool okModel = _gameModel.movePlayfieldCardToHand(playfieldIndex);
+        if (!_gameManager) {
+            CCLOG("GameController::animatePlayfieldCardToHand - game manager not initialized");
+            _busy = false;
+            return;
+        }
+
+        bool okModel = _gameManager->movePlayfieldCardToHand(playfieldIndex);
         if (!okModel) {
             CCLOG("GameController::animatePlayfieldCardToHand - model move failed for id %d", cardId);
             _busy = false;
@@ -506,7 +552,13 @@ void GameController::animateReserveTopToHand()
     // Play move animation in current parent's coords
     _busy = true;
     view->playMoveAnimation(localTargetForCurrentParent, _moveDuration, [this, cardId, worldTarget, targetPos, undoAction]() mutable {
-        bool okModel = _gameModel.drawReserveToHand();
+        if (!_gameManager) {
+            CCLOG("GameController::animateReserveTopToHand - game manager not initialized");
+            _busy = false;
+            return;
+        }
+
+        bool okModel = _gameManager->drawReserveToHand();
         if (!okModel) {
             CCLOG("GameController::animateReserveTopToHand - model draw failed for id %d", cardId);
             _busy = false;
@@ -594,7 +646,12 @@ void GameController::handleUndo()
 
             _busy = true;
             v->playMoveAnimation(localTargetForCurrentParent, _moveDuration, [this, cardId, action, worldTarget]() mutable {
-                bool okInner = _gameModel.moveTopHandCardBackToReserve(action.prevPosition, action.prevStatus, action.prevVisible, action.prevFaceUp);
+                if (!_gameManager) {
+                    CCLOG("GameController::handleUndo(DrawReserveToHand) - game manager not initialized");
+                    _busy = false;
+                    return;
+                }
+                bool okInner = _gameManager->moveTopHandCardBackToReserve(action.prevPosition, action.prevStatus, action.prevVisible, action.prevFaceUp);
                 if (!okInner) {
                     CCLOG("GameController::handleUndo(DrawReserveToHand) - model move failed for id %d", action.cardId);
                     _busy = false;
@@ -629,7 +686,9 @@ void GameController::handleUndo()
         }
         else {
             // fallback immediate
-            ok = _gameModel.moveTopHandCardBackToReserve(action.prevPosition, action.prevStatus, action.prevVisible, action.prevFaceUp);
+            if (_gameManager) {
+                ok = _gameManager->moveTopHandCardBackToReserve(action.prevPosition, action.prevStatus, action.prevVisible, action.prevFaceUp);
+            }
             if (ok) {
                 auto itv2 = _cardViews.find(cardId);
                 if (itv2 != _cardViews.end()) {
@@ -674,7 +733,12 @@ void GameController::handleUndo()
 
             _busy = true;
             v->playMoveAnimation(localTargetForCurrentParent, _moveDuration, [this, cardId, action, worldTarget]() mutable {
-                bool okInner = _gameModel.moveTopHandCardToPlayfieldAt(action.playfieldIndex, action.prevPosition, action.prevStatus, action.prevVisible, action.prevFaceUp);
+                if (!_gameManager) {
+                    CCLOG("GameController::handleUndo(MovePlayfieldToHand) - game manager not initialized");
+                    _busy = false;
+                    return;
+                }
+                bool okInner = _gameManager->moveTopHandCardToPlayfieldAt(action.playfieldIndex, action.prevPosition, action.prevStatus, action.prevVisible, action.prevFaceUp);
                 if (!okInner) {
                     CCLOG("GameController::handleUndo(MovePlayfieldToHand) - model move failed for id %d", action.cardId);
                     _busy = false;
@@ -710,7 +774,9 @@ void GameController::handleUndo()
         }
         else {
             // fallback immediate
-            ok = _gameModel.moveTopHandCardToPlayfieldAt(action.playfieldIndex, action.prevPosition, action.prevStatus, action.prevVisible, action.prevFaceUp);
+            if (_gameManager) {
+                ok = _gameManager->moveTopHandCardToPlayfieldAt(action.playfieldIndex, action.prevPosition, action.prevStatus, action.prevVisible, action.prevFaceUp);
+            }
             if (ok) {
                 auto itv2 = _cardViews.find(cardId);
                 if (itv2 != _cardViews.end()) {
@@ -757,7 +823,12 @@ void GameController::handleUndo()
 
             _busy = true;
             v->playMoveAnimation(localTargetForCurrentParent, _moveDuration, [this, cardId, action, worldTarget]() mutable {
-                bool okInner = _gameModel.movePlayfieldCardToHand(action.playfieldIndex);
+                if (!_gameManager) {
+                    CCLOG("GameController::handleUndo(MoveHandToPlayfield) - game manager not initialized");
+                    _busy = false;
+                    return;
+                }
+                bool okInner = _gameManager->movePlayfieldCardToHand(action.playfieldIndex);
                 if (!okInner) {
                     CCLOG("GameController::handleUndo(MoveHandToPlayfield) - model move failed for id %d", action.cardId);
                     _busy = false;
@@ -803,7 +874,9 @@ void GameController::handleUndo()
         }
         else {
             // fallback immediate
-            ok = _gameModel.movePlayfieldCardToHand(action.playfieldIndex);
+            if (_gameManager) {
+                ok = _gameManager->movePlayfieldCardToHand(action.playfieldIndex);
+            }
             if (ok) {
                 const auto& hand = _gameModel.getHandCards();
                 if (!hand.empty()) {
@@ -860,7 +933,12 @@ void GameController::handleUndo()
 
             _busy = true;
             v->playMoveAnimation(localTargetForCurrentParent, _moveDuration, [this, cardId, action, worldTarget]() mutable {
-                bool okInner = _gameModel.drawReserveToHand();
+                if (!_gameManager) {
+                    CCLOG("GameController::handleUndo(MoveHandToReserve) - game manager not initialized");
+                    _busy = false;
+                    return;
+                }
+                bool okInner = _gameManager->drawReserveToHand();
                 if (!okInner) {
                     CCLOG("GameController::handleUndo(MoveHandToReserve) - model draw failed for id %d", action.cardId);
                     _busy = false;
@@ -904,7 +982,9 @@ void GameController::handleUndo()
         }
         else {
             // fallback immediate draw
-            ok = _gameModel.drawReserveToHand();
+            if (_gameManager) {
+                ok = _gameManager->drawReserveToHand();
+            }
             if (ok) {
                 auto& handRef = _gameModel.getHandCards();
                 if (!handRef.empty()) {
@@ -997,77 +1077,61 @@ void GameController::reset()
     // reset model & undo
     _gameModel = GameModel();
     _undoModel.clear();
+
+    // destroy managers
+    _gameManager.reset();
+    _undoManager.reset();
+
     _busy = false;
 }
 
-/**
- * Reposition undo button to the right of the hand top (design-space _defaultHandPosition).
- * spacing is the gap in pixels between the hand and the undo button.
+/*
+ * Utility implementations that were missing (repositionUndoToRightOfHand, reparentView)
  */
+
+void GameController::reparentView(CardView* v, cocos2d::Node* newParent)
+{
+    if (!v || !newParent) return;
+
+    Node* oldParent = v->getParent();
+    Vec2 worldPos;
+    if (oldParent) {
+        worldPos = oldParent->convertToWorldSpace(v->getPosition());
+    }
+    else {
+        worldPos = v->getPosition();
+    }
+
+    // remove and re-add to new parent, keeping world position
+    v->removeFromParent();
+    newParent->addChild(v);
+    Vec2 local = newParent->convertToNodeSpace(worldPos);
+    v->setPosition(local);
+}
+
 void GameController::repositionUndoToRightOfHand(float spacing)
 {
     if (!_undoView || !_parentNode) return;
 
-    // Convert the hand design position to world coordinates
-    Vec2 worldHand = _parentNode->convertToWorldSpace(_defaultHandPosition);
-
-    // Place undo to the right: offset by half button width + spacing
-    Size btnSz = _undoView->getButtonSize();
-    Vec2 worldPos = worldHand + Vec2(btnSz.width * 5.0f + spacing, 0.0f);
-
-    // Convert back to parent-local coords and set position
-    Vec2 parentLocal = _parentNode->convertToNodeSpace(worldPos);
-    _undoView->setPosition(parentLocal);
-}
-
-// ----------------- 新增：安全 reparent 实现 -----------------
-void GameController::reparentView(CardView* v, Node* newParent)
-{
-    if (!v) return;
-    if (v->getParent() == newParent) {
-        // Still ensure callback is correct for this parent
-    }
-
-    // 保证在 removeFromParent 期间对象不会被销毁
-    v->retain();
-    v->removeFromParent();
-    if (newParent) {
-        newParent->addChild(v);
-    }
-    v->release();
-
-    // 根据目标父节点设置合适的点击回调
-    if (newParent == _handNode) {
-        // Hand: no-op
-        v->setClickCallback([](int /*cardId*/) {});
-    }
-    else if (newParent == _reserveNode) {
-        // Reserve: clicking reserve triggers reserve draw
-        v->setClickCallback([this](int /*cardId*/) {
-            this->handleReserveClick();
-            });
-    }
-    else if (newParent == _playfieldNode) {
-        // Playfield: clicking a playfield card passes its id
-        v->setClickCallback([this](int id) {
-            this->handlePlayfieldCardClick(id);
-            });
+    Vec2 worldAnchor;
+    // If we have hand node, compute its right edge in world coords
+    if (_handNode) {
+        Rect handBox = _handNode->getBoundingBox();
+        Vec2 rightMid(handBox.getMaxX(), handBox.getMidY());
+        worldAnchor = _handNode->convertToWorldSpace(rightMid);
     }
     else {
-        // Unknown parent: clear to be safe
-        v->setClickCallback([](int /*cardId*/) {});
+        worldAnchor = _parentNode->convertToWorldSpace(_defaultHandPosition);
     }
-}
 
-bool GameController::loadFromSave(const std::string& savePath)
-{
-    GameModel gm;
-    UndoModel um;
-    bool ok = SaveManager::getInstance().loadGameFromFile(savePath, gm, um);
-    if (!ok) return false;
+    // place undo view slightly to the right of the computed anchor
+    Vec2 worldPos = worldAnchor + Vec2(spacing + 8.0f, 0.0f); // small extra padding
 
-    // Replace current model/undo with loaded ones
-    _gameModel = std::move(gm);
-    _undoModel = std::move(um);
-    return true;
+    // convert back to parent node local coords (undo view is child of parent node)
+    Vec2 localPos = _parentNode->convertToNodeSpace(worldPos);
+    if (_undoView->getParent() != _parentNode) {
+        _undoView->removeFromParent();
+        _parentNode->addChild(_undoView, 20);
+    }
+    _undoView->setPosition(localPos);
 }

@@ -10,7 +10,6 @@ GameModel::GameModel()
 {
 }
 
-// existing getters/setters unchanged...
 std::vector<std::shared_ptr<CardModel>>& GameModel::getPlayfieldCards() { return _playfieldCards; }
 const std::vector<std::shared_ptr<CardModel>>& GameModel::getPlayfieldCards() const { return _playfieldCards; }
 
@@ -20,11 +19,13 @@ const std::vector<std::shared_ptr<CardModel>>& GameModel::getReserveCards() cons
 std::vector<std::shared_ptr<CardModel>>& GameModel::getHandCards() { return _handCards; }
 const std::vector<std::shared_ptr<CardModel>>& GameModel::getHandCards() const { return _handCards; }
 
-std::vector<std::shared_ptr<CardModel>>& GameModel::getStackCards() { return getHandCards(); }
-const std::vector<std::shared_ptr<CardModel>>& GameModel::getStackCards() const { return getHandCards(); }
+int GameModel::getNextCardId() const { return _nextCardId; }
+void GameModel::setNextCardId(int v) { _nextCardId = v; }
 
+// Compatibility adders
 void GameModel::addPlayfieldCard(const std::shared_ptr<CardModel>& card)
 {
+    if (!card) return;
     if (card->getId() == -1) {
         card->setId(allocateCardId());
     }
@@ -33,6 +34,7 @@ void GameModel::addPlayfieldCard(const std::shared_ptr<CardModel>& card)
 
 void GameModel::addReserveCard(const std::shared_ptr<CardModel>& card)
 {
+    if (!card) return;
     if (card->getId() == -1) {
         card->setId(allocateCardId());
     }
@@ -41,117 +43,11 @@ void GameModel::addReserveCard(const std::shared_ptr<CardModel>& card)
 
 void GameModel::addHandCard(const std::shared_ptr<CardModel>& card)
 {
+    if (!card) return;
     if (card->getId() == -1) {
         card->setId(allocateCardId());
     }
     _handCards.push_back(card);
-}
-
-bool GameModel::drawReserveToHand()
-{
-    if (_reserveCards.empty()) return false;
-
-    auto cardPtr = _reserveCards.back();
-    _reserveCards.pop_back();
-
-    cardPtr->setFaceUp(true); // 到 hand 顶部应当翻开
-    _handCards.push_back(cardPtr);
-    return true;
-}
-
-bool GameModel::movePlayfieldCardToHand(int playfieldIndex)
-{
-    if (playfieldIndex < 0 || playfieldIndex >= static_cast<int>(_playfieldCards.size())) {
-        return false;
-    }
-
-    auto cardPtr = _playfieldCards[playfieldIndex];
-    if (!cardPtr->isFaceUp() || !cardPtr->isVisible()) {
-        return false;
-    }
-
-    _handCards.push_back(cardPtr);
-    _playfieldCards.erase(_playfieldCards.begin() + playfieldIndex);
-    return true;
-}
-
-bool GameModel::moveTopHandCardToPlayfieldAt(int playfieldIndex, Vec2 position, CardStatus status)
-{
-    if (_handCards.empty()) return false;
-    bool visible = true;
-    bool faceUp = _handCards.back()->isFaceUp();
-    return moveTopHandCardToPlayfieldAt(playfieldIndex, position, status, visible, faceUp);
-}
-
-bool GameModel::moveTopHandCardToPlayfieldAt(int playfieldIndex, Vec2 position, CardStatus status, bool visible)
-{
-    if (_handCards.empty()) return false;
-    bool faceUp = _handCards.back()->isFaceUp();
-    return moveTopHandCardToPlayfieldAt(playfieldIndex, position, status, visible, faceUp);
-}
-
-bool GameModel::moveTopHandCardToPlayfieldAt(int playfieldIndex, Vec2 position, CardStatus status, bool visible, bool faceUp)
-{
-    if (_handCards.empty()) return false;
-
-    auto cardPtr = _handCards.back();
-    _handCards.pop_back();
-
-    cardPtr->setPosition(position);
-    cardPtr->setStatus(status);
-    cardPtr->setVisible(visible);
-    cardPtr->setFaceUp(faceUp);
-
-    if (playfieldIndex < 0 || playfieldIndex > static_cast<int>(_playfieldCards.size())) {
-        _playfieldCards.push_back(cardPtr);
-    }
-    else {
-        _playfieldCards.insert(_playfieldCards.begin() + playfieldIndex, cardPtr);
-    }
-    return true;
-}
-
-bool GameModel::flipTopHandCard()
-{
-    if (_handCards.empty()) return false;
-    _handCards.back()->setFaceUp(true);
-    return true;
-}
-
-bool GameModel::moveTopHandCardBackToReserve(Vec2 position, CardStatus status, bool visible)
-{
-    if (_handCards.empty()) return false;
-    bool faceUp = _handCards.back()->isFaceUp();
-    return moveTopHandCardBackToReserve(position, status, visible, faceUp);
-}
-
-bool GameModel::moveTopHandCardBackToReserve(Vec2 position, CardStatus status, bool visible, bool faceUp)
-{
-    if (_handCards.empty()) return false;
-
-    auto cardPtr = _handCards.back();
-    _handCards.pop_back();
-
-    cardPtr->setPosition(position);
-    cardPtr->setStatus(status);
-    cardPtr->setVisible(visible);
-    cardPtr->setFaceUp(faceUp);
-
-    _reserveCards.push_back(cardPtr); // 放回 reserve 底部
-    return true;
-}
-
-bool GameModel::hasMovablePlayfieldCard() const
-{
-    return std::any_of(_playfieldCards.begin(), _playfieldCards.end(), [](const std::shared_ptr<CardModel>& card) {
-        return card->isFaceUp() && card->isVisible();
-        });
-}
-
-bool GameModel::canMatchWithHandTop() const
-{
-    if (_handCards.empty()) return false;
-    return _handCards.back()->isFaceUp();
 }
 
 int GameModel::allocateCardId()
@@ -183,12 +79,11 @@ int GameModel::findHandIndexById(int cardId) const
     return -1;
 }
 
-// Serialization
+// Serialization (兼容原来格式)
 json GameModel::toJson() const
 {
     json j;
     j["version"] = 1;
-    // levelId should be filled by caller if needed
     j["nextCardId"] = _nextCardId;
 
     auto arr = json::array();

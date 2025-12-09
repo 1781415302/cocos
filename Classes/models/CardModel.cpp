@@ -23,6 +23,9 @@ void CardModel::setId(int id) { _id = id; }
 
 CardFaceType CardModel::getCardFace() const { return _cardFace; }
 CardSuitType CardModel::getCardSuit() const { return _cardSuit; }
+void CardModel::setCardFace(CardFaceType face) { _cardFace = face; }
+void CardModel::setCardSuit(CardSuitType suit) { _cardSuit = suit; }
+
 cocos2d::Vec2 CardModel::getPosition() const { return _position; }
 CardStatus CardModel::getStatus() const { return _status; }
 
@@ -35,7 +38,7 @@ void CardModel::setVisible(bool visible) { _visible = visible; }
 void CardModel::setPosition(cocos2d::Vec2 pos) { _position = pos; }
 void CardModel::setStatus(CardStatus status) { _status = status; }
 
-// Serialization
+// 成员序列化接口（避免在其它翻译单元依赖 free-function ADL）
 json CardModel::toJson() const
 {
     json j;
@@ -51,16 +54,18 @@ json CardModel::toJson() const
 
 CardModel CardModel::fromJson(const json& j)
 {
-    int id = j.value("id", -1);
-    CardFaceType face = static_cast<CardFaceType>(j.value("face", 0));
-    CardSuitType suit = static_cast<CardSuitType>(j.value("suit", 0));
+    CardModel cm;
+    cm._id = j.value("id", -1);
+    cm._cardFace = static_cast<CardFaceType>(j.value("face", 0));
+    cm._cardSuit = static_cast<CardSuitType>(j.value("suit", 0));
     float x = 0.0f, y = 0.0f;
     if (j.contains("pos")) {
         x = j["pos"].value("x", 0.0f);
         y = j["pos"].value("y", 0.0f);
     }
-    CardStatus status = static_cast<CardStatus>(j.value("status", static_cast<int>(CardStatus::COVERED)));
-    CardModel cm(id, face, suit, cocos2d::Vec2(x, y), status);
-    cm.setVisible(j.value("visible", true));
+    cm._position = cocos2d::Vec2(x, y);
+    cm._status = static_cast<CardStatus>(j.value("status", static_cast<int>(CardStatus::COVERED)));
+    cm._visible = j.value("visible", true);
+    // faceUp 可由 status 推断（或者单独读取）
     return cm;
 }

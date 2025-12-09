@@ -12,7 +12,8 @@
 using json = nlohmann::json;
 
 /**
- * 说明略（保留原有）
+ * GameModel 现在只作为数据容器（状态/持久化），并提供少量兼容性方法。
+ * 复杂业务逻辑/操作应放到 controllers/managers 或 services。
  */
 class GameModel
 {
@@ -25,37 +26,26 @@ public:
     const std::vector<std::shared_ptr<CardModel>>& getReserveCards() const;
     std::vector<std::shared_ptr<CardModel>>& getHandCards();
     const std::vector<std::shared_ptr<CardModel>>& getHandCards() const;
-    std::vector<std::shared_ptr<CardModel>>& getStackCards();
-    const std::vector<std::shared_ptr<CardModel>>& getStackCards() const;
 
+    // Compatibility helpers: push/add methods and id allocation (lightweight)
     void addPlayfieldCard(const std::shared_ptr<CardModel>& card);
     void addReserveCard(const std::shared_ptr<CardModel>& card);
     void addHandCard(const std::shared_ptr<CardModel>& card);
 
-    bool drawReserveToHand();
-    bool movePlayfieldCardToHand(int playfieldIndex);
-
-    bool moveTopHandCardToPlayfieldAt(int playfieldIndex, cocos2d::Vec2 position, CardStatus status);
-    bool moveTopHandCardToPlayfieldAt(int playfieldIndex, cocos2d::Vec2 position, CardStatus status, bool visible);
-    bool moveTopHandCardToPlayfieldAt(int playfieldIndex, cocos2d::Vec2 position, CardStatus status, bool visible, bool faceUp);
-
-    bool flipTopHandCard();
-
-    bool moveTopHandCardBackToReserve(cocos2d::Vec2 position, CardStatus status, bool visible);
-    bool moveTopHandCardBackToReserve(cocos2d::Vec2 position, CardStatus status, bool visible, bool faceUp);
-
-    bool hasMovablePlayfieldCard() const;
-    bool canMatchWithHandTop() const;
-
     int allocateCardId();
 
+    // nextCardId 作为状态一部分（分配策略可由 manager 控制）
+    int getNextCardId() const;
+    void setNextCardId(int v);
+
+    // Serialization via free functions to_json/from_json
+    json toJson() const; // 可保留兼容方法
+    static GameModel fromJson(const json& j);
+
+    // 查找帮助
     int findPlayfieldIndexById(int cardId) const;
     int findReserveIndexById(int cardId) const;
     int findHandIndexById(int cardId) const;
-
-    // Serialization
-    json toJson() const;
-    static GameModel fromJson(const json& j);
 
 private:
     std::vector<std::shared_ptr<CardModel>> _playfieldCards;

@@ -28,54 +28,7 @@ size_t UndoModel::size() const
     return _stack.size();
 }
 
-bool UndoModel::applyLast(GameModel& model)
-{
-    if (_stack.empty()) return false;
-
-    Action action = _stack.back();
-
-    bool ok = false;
-    switch (action.type)
-    {
-    case ActionType::DrawReserveToHand:
-        ok = model.moveTopHandCardBackToReserve(action.prevPosition, action.prevStatus, action.prevVisible, action.prevFaceUp);
-        break;
-    case ActionType::MovePlayfieldToHand:
-        ok = model.moveTopHandCardToPlayfieldAt(action.playfieldIndex, action.prevPosition, action.prevStatus, action.prevVisible, action.prevFaceUp);
-        break;
-    case ActionType::MoveHandToPlayfield:
-        ok = model.movePlayfieldCardToHand(action.playfieldIndex);
-        if (ok) {
-            auto& hand = model.getHandCards();
-            if (!hand.empty()) {
-                hand.back()->setPosition(action.prevPosition);
-                hand.back()->setStatus(action.prevStatus);
-                hand.back()->setVisible(action.prevVisible);
-                hand.back()->setFaceUp(action.prevFaceUp);
-            }
-        }
-        break;
-    case ActionType::MoveHandToReserve:
-        ok = model.moveTopHandCardBackToReserve(action.prevPosition, action.prevStatus, action.prevVisible, action.prevFaceUp);
-        break;
-    case ActionType::FlipHandTopFaceUp:
-    {
-        auto& hand = model.getHandCards();
-        if (!hand.empty()) {
-            hand.back()->setFaceUp(action.prevFaceUp);
-            ok = true;
-        }
-        break;
-    }
-    default:
-        ok = false;
-    }
-
-    if (ok) {
-        _stack.pop_back();
-    }
-    return ok;
-}
+// 注意：applyLast 从 model 中移除，应该由 UndoManager/Controller 来实现
 
 // Serialization for Action
 json UndoModel::Action::toJson() const
@@ -109,7 +62,7 @@ UndoModel::Action UndoModel::Action::fromJson(const json& j)
     return a;
 }
 
-// Action factory functions (unchanged, copied)
+// Action factory functions (仅用于捕获 CardModel 状态)
 UndoModel::Action UndoModel::makeDrawReserveToHand(const CardModel& cardBefore)
 {
     Action a;
