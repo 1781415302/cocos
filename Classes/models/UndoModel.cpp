@@ -1,5 +1,6 @@
 #include "UndoModel.h"
 #include "GameModel.h"
+#include "services/GameModelService.h"
 #include <utils/json.hpp>
 
 using json = nlohmann::json;
@@ -38,13 +39,13 @@ bool UndoModel::applyLast(GameModel& model)
     switch (action.type)
     {
     case ActionType::DrawReserveToHand:
-        ok = model.moveTopHandCardBackToReserve(action.prevPosition, action.prevStatus, action.prevVisible, action.prevFaceUp);
+        ok = GameModelService::moveTopHandCardBackToReserve(model, action.prevPosition, action.prevStatus, action.prevVisible, action.prevFaceUp);
         break;
     case ActionType::MovePlayfieldToHand:
-        ok = model.moveTopHandCardToPlayfieldAt(action.playfieldIndex, action.prevPosition, action.prevStatus, action.prevVisible, action.prevFaceUp);
+        ok = GameModelService::moveTopHandCardToPlayfieldAt(model, action.playfieldIndex, action.prevPosition, action.prevStatus, action.prevVisible, action.prevFaceUp);
         break;
     case ActionType::MoveHandToPlayfield:
-        ok = model.movePlayfieldCardToHand(action.playfieldIndex);
+        ok = GameModelService::movePlayfieldCardToHand(model, action.playfieldIndex);
         if (ok) {
             auto& hand = model.getHandCards();
             if (!hand.empty()) {
@@ -56,7 +57,7 @@ bool UndoModel::applyLast(GameModel& model)
         }
         break;
     case ActionType::MoveHandToReserve:
-        ok = model.moveTopHandCardBackToReserve(action.prevPosition, action.prevStatus, action.prevVisible, action.prevFaceUp);
+        ok = GameModelService::moveTopHandCardBackToReserve(model, action.prevPosition, action.prevStatus, action.prevVisible, action.prevFaceUp);
         break;
     case ActionType::FlipHandTopFaceUp:
     {
@@ -77,7 +78,7 @@ bool UndoModel::applyLast(GameModel& model)
     return ok;
 }
 
-// Serialization for Action
+// Serialization for Action (unchanged)
 json UndoModel::Action::toJson() const
 {
     json j;
@@ -109,7 +110,7 @@ UndoModel::Action UndoModel::Action::fromJson(const json& j)
     return a;
 }
 
-// Action factory functions (unchanged, copied)
+// Action factory functions (unchanged)
 UndoModel::Action UndoModel::makeDrawReserveToHand(const CardModel& cardBefore)
 {
     Action a;

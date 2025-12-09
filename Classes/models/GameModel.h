@@ -12,7 +12,7 @@
 using json = nlohmann::json;
 
 /**
- * 说明略（保留原有）
+ * 说明：数据层，仅存储运行时数据与序列化，不承载业务操作。
  */
 class GameModel
 {
@@ -31,21 +31,6 @@ public:
     void addPlayfieldCard(const std::shared_ptr<CardModel>& card);
     void addReserveCard(const std::shared_ptr<CardModel>& card);
     void addHandCard(const std::shared_ptr<CardModel>& card);
-
-    bool drawReserveToHand();
-    bool movePlayfieldCardToHand(int playfieldIndex);
-
-    bool moveTopHandCardToPlayfieldAt(int playfieldIndex, cocos2d::Vec2 position, CardStatus status);
-    bool moveTopHandCardToPlayfieldAt(int playfieldIndex, cocos2d::Vec2 position, CardStatus status, bool visible);
-    bool moveTopHandCardToPlayfieldAt(int playfieldIndex, cocos2d::Vec2 position, CardStatus status, bool visible, bool faceUp);
-
-    bool flipTopHandCard();
-
-    bool moveTopHandCardBackToReserve(cocos2d::Vec2 position, CardStatus status, bool visible);
-    bool moveTopHandCardBackToReserve(cocos2d::Vec2 position, CardStatus status, bool visible, bool faceUp);
-
-    bool hasMovablePlayfieldCard() const;
-    bool canMatchWithHandTop() const;
 
     int allocateCardId();
 

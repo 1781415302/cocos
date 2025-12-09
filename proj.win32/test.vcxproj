@@ -161,6 +161,7 @@ xcopy "$(ProjectDir)..\Resources" "$(OutDir)\Resources\" /D /E /I /F /Y
     <ClCompile Include="..\Classes\models\GameModel.cpp" />
     <ClCompile Include="..\Classes\models\UndoModel.cpp" />
     <ClCompile Include="..\Classes\services\GameModelFromLevelGenerator.cpp" />
+    <ClCompile Include="..\Classes\services\GameModelService.cpp" />
     <ClCompile Include="..\Classes\views\CardView.cpp" />
     <ClCompile Include="..\Classes\views\UndoView.cpp" />
     <ClCompile Include="main.cpp" />
@@ -178,6 +179,7 @@ xcopy "$(ProjectDir)..\Resources" "$(OutDir)\Resources\" /D /E /I /F /Y
     <ClInclude Include="..\Classes\models\GameModel.h" />
     <ClInclude Include="..\Classes\models\UndoModel.h" />
     <ClInclude Include="..\Classes\services\GameModelFromLevelGenerator.h" />
+    <ClInclude Include="..\Classes\services\GameModelService.h" />
     <ClInclude Include="..\Classes\utils\CardEnums.h" />
     <ClInclude Include="..\Classes\utils\json.hpp" />
     <ClInclude Include="..\Classes\views\CardView.h" />

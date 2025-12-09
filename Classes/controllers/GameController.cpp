@@ -2,6 +2,7 @@
 #include "GameController.h"
 #include "configs/Loaders/LevelConfigLoader.h"
 #include "services/GameModelFromLevelGenerator.h"
+#include "services/GameModelService.h"
 #include "models/CardModel.h"
 #include "models/UndoModel.h"
 #include "utils/CardEnums.h"
@@ -242,7 +243,7 @@ void GameController::drawInitialReserveTopToHand(bool animate)
     const auto& reserve = _gameModel.getReserveCards();
     if (reserve.empty()) return;
 
-    bool ok = _gameModel.drawReserveToHand();
+    bool ok = GameModelService::drawReserveToHand(_gameModel);
     if (!ok) return;
 
     const auto& handRef = _gameModel.getHandCards();
@@ -328,7 +329,7 @@ void GameController::handlePlayfieldCardClick(int cardId)
     }
 
     // Check hand top can match
-    if (!_gameModel.canMatchWithHandTop()) {
+    if (!GameModelService::canMatchWithHandTop(_gameModel)) {
         CCLOG("GameController::handlePlayfieldCardClick - no matching hand top");
         return;
     }
@@ -384,7 +385,7 @@ void GameController::animatePlayfieldCardToHand(int playfieldIndex, int cardId)
     _busy = true;
     view->playMoveAnimation(localTargetForCurrentParent, _moveDuration, [this, playfieldIndex, cardId, worldTarget, targetPos, undoAction]() mutable {
         // After animation: update model
-        bool okModel = _gameModel.movePlayfieldCardToHand(playfieldIndex);
+        bool okModel = GameModelService::movePlayfieldCardToHand(_gameModel, playfieldIndex);
         if (!okModel) {
             CCLOG("GameController::animatePlayfieldCardToHand - model move failed for id %d", cardId);
             _busy = false;
@@ -506,7 +507,7 @@ void GameController::animateReserveTopToHand()
     // Play move animation in current parent's coords
     _busy = true;
     view->playMoveAnimation(localTargetForCurrentParent, _moveDuration, [this, cardId, worldTarget, targetPos, undoAction]() mutable {
-        bool okModel = _gameModel.drawReserveToHand();
+        bool okModel = GameModelService::drawReserveToHand(_gameModel);
         if (!okModel) {
             CCLOG("GameController::animateReserveTopToHand - model draw failed for id %d", cardId);
             _busy = false;
@@ -594,7 +595,7 @@ void GameController::handleUndo()
 
             _busy = true;
             v->playMoveAnimation(localTargetForCurrentParent, _moveDuration, [this, cardId, action, worldTarget]() mutable {
-                bool okInner = _gameModel.moveTopHandCardBackToReserve(action.prevPosition, action.prevStatus, action.prevVisible, action.prevFaceUp);
+                bool okInner = GameModelService::moveTopHandCardBackToReserve(_gameModel, action.prevPosition, action.prevStatus, action.prevVisible, action.prevFaceUp);
                 if (!okInner) {
                     CCLOG("GameController::handleUndo(DrawReserveToHand) - model move failed for id %d", action.cardId);
                     _busy = false;
@@ -629,7 +630,7 @@ void GameController::handleUndo()
         }
         else {
             // fallback immediate
-            ok = _gameModel.moveTopHandCardBackToReserve(action.prevPosition, action.prevStatus, action.prevVisible, action.prevFaceUp);
+            ok = GameModelService::moveTopHandCardBackToReserve(_gameModel, action.prevPosition, action.prevStatus, action.prevVisible, action.prevFaceUp);
             if (ok) {
                 auto itv2 = _cardViews.find(cardId);
                 if (itv2 != _cardViews.end()) {
@@ -674,7 +675,7 @@ void GameController::handleUndo()
 
             _busy = true;
             v->playMoveAnimation(localTargetForCurrentParent, _moveDuration, [this, cardId, action, worldTarget]() mutable {
-                bool okInner = _gameModel.moveTopHandCardToPlayfieldAt(action.playfieldIndex, action.prevPosition, action.prevStatus, action.prevVisible, action.prevFaceUp);
+                bool okInner = GameModelService::moveTopHandCardToPlayfieldAt(_gameModel, action.playfieldIndex, action.prevPosition, action.prevStatus, action.prevVisible, action.prevFaceUp);
                 if (!okInner) {
                     CCLOG("GameController::handleUndo(MovePlayfieldToHand) - model move failed for id %d", action.cardId);
                     _busy = false;
@@ -710,7 +711,7 @@ void GameController::handleUndo()
         }
         else {
             // fallback immediate
-            ok = _gameModel.moveTopHandCardToPlayfieldAt(action.playfieldIndex, action.prevPosition, action.prevStatus, action.prevVisible, action.prevFaceUp);
+            ok = GameModelService::moveTopHandCardToPlayfieldAt(_gameModel, action.playfieldIndex, action.prevPosition, action.prevStatus, action.prevVisible, action.prevFaceUp);
             if (ok) {
                 auto itv2 = _cardViews.find(cardId);
                 if (itv2 != _cardViews.end()) {
@@ -757,7 +758,7 @@ void GameController::handleUndo()
 
             _busy = true;
             v->playMoveAnimation(localTargetForCurrentParent, _moveDuration, [this, cardId, action, worldTarget]() mutable {
-                bool okInner = _gameModel.movePlayfieldCardToHand(action.playfieldIndex);
+                bool okInner = GameModelService::movePlayfieldCardToHand(_gameModel, action.playfieldIndex);
                 if (!okInner) {
                     CCLOG("GameController::handleUndo(MoveHandToPlayfield) - model move failed for id %d", action.cardId);
                     _busy = false;
@@ -803,7 +804,7 @@ void GameController::handleUndo()
         }
         else {
             // fallback immediate
-            ok = _gameModel.movePlayfieldCardToHand(action.playfieldIndex);
+            ok = GameModelService::movePlayfieldCardToHand(_gameModel, action.playfieldIndex);
             if (ok) {
                 const auto& hand = _gameModel.getHandCards();
                 if (!hand.empty()) {
@@ -860,7 +861,7 @@ void GameController::handleUndo()
 
             _busy = true;
             v->playMoveAnimation(localTargetForCurrentParent, _moveDuration, [this, cardId, action, worldTarget]() mutable {
-                bool okInner = _gameModel.drawReserveToHand();
+                bool okInner = GameModelService::drawReserveToHand(_gameModel);
                 if (!okInner) {
                     CCLOG("GameController::handleUndo(MoveHandToReserve) - model draw failed for id %d", action.cardId);
                     _busy = false;
@@ -904,7 +905,7 @@ void GameController::handleUndo()
         }
         else {
             // fallback immediate draw
-            ok = _gameModel.drawReserveToHand();
+            ok = GameModelService::drawReserveToHand(_gameModel);
             if (ok) {
                 auto& handRef = _gameModel.getHandCards();
                 if (!handRef.empty()) {
@@ -978,6 +979,7 @@ void GameController::handleUndo()
         CCLOG("GameController::handleUndo - apply failed for action type %d", static_cast<int>(action.type));
     }
 }
+
 
 void GameController::reset()
 {
