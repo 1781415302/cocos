@@ -1,6 +1,4 @@
 #include "UndoModel.h"
-#include "GameModel.h"
-#include "services/GameModelService.h"
 #include <utils/json.hpp>
 
 using json = nlohmann::json;
@@ -28,7 +26,6 @@ size_t UndoModel::size() const
 {
     return _stack.size();
 }
-
 
 // Serialization for Action (unchanged)
 json UndoModel::Action::toJson() const

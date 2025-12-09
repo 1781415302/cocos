@@ -81,6 +81,9 @@
     <ClCompile Include="..\Classes\services\GameModelService.cpp">
       <Filter>src\Service</Filter>
     </ClCompile>
+    <ClCompile Include="..\Classes\services\UndoService.cpp">
+      <Filter>src\Service</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="main.h">
@@ -135,6 +138,9 @@
       <Filter>src\Util</Filter>
     </ClInclude>
     <ClInclude Include="..\Classes\services\GameModelService.h">
+      <Filter>src\Service</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Classes\services\UndoService.h">
       <Filter>src\Service</Filter>
     </ClInclude>
   </ItemGroup>
