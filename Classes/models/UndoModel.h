@@ -46,7 +46,6 @@ public:
     bool pop(Action& outAction);
     void clear();
     size_t size() const;
-    bool applyLast(GameModel& model);
 
     // Serialization
     json toJson() const;

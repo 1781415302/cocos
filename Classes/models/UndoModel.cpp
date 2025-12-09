@@ -29,54 +29,6 @@ size_t UndoModel::size() const
     return _stack.size();
 }
 
-bool UndoModel::applyLast(GameModel& model)
-{
-    if (_stack.empty()) return false;
-
-    Action action = _stack.back();
-
-    bool ok = false;
-    switch (action.type)
-    {
-    case ActionType::DrawReserveToHand:
-        ok = GameModelService::moveTopHandCardBackToReserve(model, action.prevPosition, action.prevStatus, action.prevVisible, action.prevFaceUp);
-        break;
-    case ActionType::MovePlayfieldToHand:
-        ok = GameModelService::moveTopHandCardToPlayfieldAt(model, action.playfieldIndex, action.prevPosition, action.prevStatus, action.prevVisible, action.prevFaceUp);
-        break;
-    case ActionType::MoveHandToPlayfield:
-        ok = GameModelService::movePlayfieldCardToHand(model, action.playfieldIndex);
-        if (ok) {
-            auto& hand = model.getHandCards();
-            if (!hand.empty()) {
-                hand.back()->setPosition(action.prevPosition);
-                hand.back()->setStatus(action.prevStatus);
-                hand.back()->setVisible(action.prevVisible);
-                hand.back()->setFaceUp(action.prevFaceUp);
-            }
-        }
-        break;
-    case ActionType::MoveHandToReserve:
-        ok = GameModelService::moveTopHandCardBackToReserve(model, action.prevPosition, action.prevStatus, action.prevVisible, action.prevFaceUp);
-        break;
-    case ActionType::FlipHandTopFaceUp:
-    {
-        auto& hand = model.getHandCards();
-        if (!hand.empty()) {
-            hand.back()->setFaceUp(action.prevFaceUp);
-            ok = true;
-        }
-        break;
-    }
-    default:
-        ok = false;
-    }
-
-    if (ok) {
-        _stack.pop_back();
-    }
-    return ok;
-}
 
 // Serialization for Action (unchanged)
 json UndoModel::Action::toJson() const

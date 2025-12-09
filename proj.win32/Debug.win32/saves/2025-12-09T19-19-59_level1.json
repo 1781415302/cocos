@@ -1,0 +1,119 @@
+{
+  "hand": [
+    {
+      "face": 3,
+      "faceUp": true,
+      "id": 9,
+      "pos": {
+        "x": 540.0,
+        "y": 200.0
+      },
+      "status": 1,
+      "suit": 0,
+      "visible": true
+    }
+  ],
+  "nextCardId": 10,
+  "playfield": [
+    {
+      "face": 2,
+      "faceUp": false,
+      "id": 1,
+      "pos": {
+        "x": 250.0,
+        "y": 1000.0
+      },
+      "status": 0,
+      "suit": 0,
+      "visible": true
+    },
+    {
+      "face": 3,
+      "faceUp": false,
+      "id": 2,
+      "pos": {
+        "x": 300.0,
+        "y": 800.0
+      },
+      "status": 0,
+      "suit": 0,
+      "visible": true
+    },
+    {
+      "face": 4,
+      "faceUp": true,
+      "id": 3,
+      "pos": {
+        "x": 350.0,
+        "y": 600.0
+      },
+      "status": 1,
+      "suit": 1,
+      "visible": true
+    },
+    {
+      "face": 5,
+      "faceUp": false,
+      "id": 4,
+      "pos": {
+        "x": 850.0,
+        "y": 1000.0
+      },
+      "status": 0,
+      "suit": 0,
+      "visible": true
+    },
+    {
+      "face": 6,
+      "faceUp": false,
+      "id": 5,
+      "pos": {
+        "x": 800.0,
+        "y": 800.0
+      },
+      "status": 0,
+      "suit": 0,
+      "visible": true
+    },
+    {
+      "face": 7,
+      "faceUp": true,
+      "id": 6,
+      "pos": {
+        "x": 750.0,
+        "y": 600.0
+      },
+      "status": 1,
+      "suit": 3,
+      "visible": true
+    }
+  ],
+  "reserve": [
+    {
+      "face": 0,
+      "faceUp": false,
+      "id": 7,
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "status": 0,
+      "suit": 0,
+      "visible": true
+    },
+    {
+      "face": 6,
+      "faceUp": false,
+      "id": 8,
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "status": 0,
+      "suit": 0,
+      "visible": true
+    }
+  ],
+  "undo": [],
+  "version": 1
+}
