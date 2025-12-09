@@ -1,0 +1,179 @@
+{
+  "hand": [
+    {
+      "face": 5,
+      "faceUp": true,
+      "id": 14,
+      "pos": {
+        "x": 540.0,
+        "y": 200.0
+      },
+      "status": 1,
+      "suit": 1,
+      "visible": true
+    }
+  ],
+  "nextCardId": 15,
+  "playfield": [
+    {
+      "face": 1,
+      "faceUp": false,
+      "id": 1,
+      "pos": {
+        "x": 200.0,
+        "y": 1200.0
+      },
+      "status": 0,
+      "suit": 0,
+      "visible": true
+    },
+    {
+      "face": 2,
+      "faceUp": false,
+      "id": 2,
+      "pos": {
+        "x": 220.0,
+        "y": 1000.0
+      },
+      "status": 0,
+      "suit": 1,
+      "visible": true
+    },
+    {
+      "face": 3,
+      "faceUp": true,
+      "id": 3,
+      "pos": {
+        "x": 240.0,
+        "y": 800.0
+      },
+      "status": 1,
+      "suit": 2,
+      "visible": true
+    },
+    {
+      "face": 4,
+      "faceUp": false,
+      "id": 4,
+      "pos": {
+        "x": 500.0,
+        "y": 1300.0
+      },
+      "status": 0,
+      "suit": 0,
+      "visible": true
+    },
+    {
+      "face": 5,
+      "faceUp": false,
+      "id": 5,
+      "pos": {
+        "x": 520.0,
+        "y": 1100.0
+      },
+      "status": 0,
+      "suit": 3,
+      "visible": true
+    },
+    {
+      "face": 6,
+      "faceUp": true,
+      "id": 6,
+      "pos": {
+        "x": 540.0,
+        "y": 900.0
+      },
+      "status": 1,
+      "suit": 1,
+      "visible": true
+    },
+    {
+      "face": 7,
+      "faceUp": false,
+      "id": 7,
+      "pos": {
+        "x": 800.0,
+        "y": 1400.0
+      },
+      "status": 0,
+      "suit": 2,
+      "visible": true
+    },
+    {
+      "face": 8,
+      "faceUp": false,
+      "id": 8,
+      "pos": {
+        "x": 820.0,
+        "y": 1200.0
+      },
+      "status": 0,
+      "suit": 0,
+      "visible": true
+    },
+    {
+      "face": 9,
+      "faceUp": true,
+      "id": 9,
+      "pos": {
+        "x": 840.0,
+        "y": 1000.0
+      },
+      "status": 1,
+      "suit": 3,
+      "visible": true
+    }
+  ],
+  "reserve": [
+    {
+      "face": 0,
+      "faceUp": false,
+      "id": 10,
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "status": 0,
+      "suit": 1,
+      "visible": true
+    },
+    {
+      "face": 10,
+      "faceUp": false,
+      "id": 11,
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "status": 0,
+      "suit": 2,
+      "visible": true
+    },
+    {
+      "face": 11,
+      "faceUp": false,
+      "id": 12,
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "status": 0,
+      "suit": 3,
+      "visible": true
+    },
+    {
+      "face": 12,
+      "faceUp": false,
+      "id": 13,
+      "pos": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "status": 0,
+      "suit": 0,
+      "visible": true
+    }
+  ],
+  "undo": [],
+  "version": 1
+}
