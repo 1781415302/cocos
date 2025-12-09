@@ -1,4 +1,4 @@
-#pragma once
+О╩©#pragma once
 #ifndef SAVE_MANAGER_H
 #define SAVE_MANAGER_H
 
@@ -11,41 +11,41 @@ class UndoModel;
 class SaveManager
 {
 public:
-    static SaveManager& getInstance();
+    // Д╦█Е├█Ф≤╞Е█∙Д╬▀О╪▄Е┘│Х╝╦Е╓√И┐╗Ф·└И─═/ФЁ╗Е┘╔
+    SaveManager() = default;
 
-    // ╩Ях║ saves д©б╪ё╨д╛хойг©иж╢ппнд╪ЧкЫтзд©б╪об╣д "saves/"║ё
-    // хГ╧Ш╣Всцак setSavesDirectory() тР╥╣╩ь╠╩╦╡╦г╣дб╥╬╤ё╗╦╡╦гб╥╬╤с╕н╙╬Ь╤тб╥╬╤ё╛д╘н╡©исп╩Рнчп╠╦эё╘║ё
+    // О©╫О©╫х║ saves д©б╪О©╫О©╫д╛О©╫О©╫О©╫г©О©╫ж╢О©╫О©╫О©╫д╪О©╫О©╫О©╫О©╫О©╫д©б╪О©╫б╣О©╫ "saves/"О©╫О©╫
+    // О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫ setSavesDirectory() О©╫Р╥╣╩ь╠О©╫О©╫О©╫О©╫г╣О©╫б╥О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫б╥О©╫О©╫с╕н╙О©╫О©╫О©╫О©╫б╥О©╫О©╫О©╫О©╫д╘н╡О©╫О©╫О©╫п╩О©╫О©╫О©╫п╠О©╫эёО©╫О©╫О©╫
     std::string getSavesDirectory() const;
 
-    // иХжцвт╤╗рЕ╢Ф╣╣д©б╪ё╗╢╚хК╬Ь╤тб╥╬╤ё╘ё╩╢╚©увж╥Ш╢╝рт╩ж╦╢д╛хоё╗©иж╢ппЁлпРд©б╪об╣д savesё╘
+    // О©╫О©╫О©╫О©╫О©╫т╤О©╫О©╫О©╫О©╫Ф╣╣д©б╪О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫б╥О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫ж╥О©╫О©╫О©╫О©╫т╩ж╦О©╫д╛О©╫оёО©╫О©╫О©╫ж╢О©╫пЁО©╫О©╫О©╫д©б╪О©╫б╣О©╫ savesО©╫О©╫
     void setSavesDirectory(const std::string& path);
 
-    // х╥╠ё saves д©б╪╢Фтзё╛╠ьр╙й╠╢╢╫╗ё╩хГ╧Шд╛ход©б╪╡╩©ип╢ё╛╩А╩ьмк╣╫ writablePath + "saves/"
+    // х╥О©╫О©╫ saves д©б╪О©╫О©╫О©╫зёО©╫О©╫О©╫р╙й╠О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫д╛О©╫О©╫д©б╪О©╫О©╫О©╫О©╫п╢О©╫О©╫О©╫О©╫О©╫О©╫О©╫к╣О©╫ writablePath + "saves/"
     void ensureSavesDirectoryExists();
 
-    // апЁЖ saves д©б╪об╣д╢Ф╣╣нд╪Ч
+    // О©╫пЁО©╫ saves д©б╪О©╫б╣д╢Ф╣╣О©╫д╪О©╫
     std::vector<std::string> listSaveFiles() const;
 
-    // pending / active path ╧эюМё╗UI й╧сцё╘
+    // pending / active path О©╫О©╫О©╫О©╫О©╫О©╫UI й╧О©╫цёО©╫
     void setPendingLoadPath(const std::string& path);
     std::string getPendingLoadPath() const;
 
     void setActiveSavePath(const std::string& path);
     std::string getActiveSavePath() const;
 
-    // ╢╢╫╗пб╢Ф╣╣нд╪Чсцсз levelIdё╗╩Атзд©б╪жп╢╢╫╗ртй╠╪Д╢ацЭцШ╣днд╪Чё╘
+    // О©╫О©╫О©╫О©╫О©╫б╢Ф╣╣О©╫д╪О©╫О©╫О©╫О©╫О©╫ levelIdО©╫О©╫О©╫О©╫О©╫О©╫д©б╪О©╫п╢О©╫О©╫О©╫О©╫О©╫й╠О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫д╪О©╫О©╫О©╫
     std::string createNewSaveFileForLevel(const std::string& levelId) const;
 
-    // ╠ё╢Ф/╤ах║ GameModel + UndoModel ╣╫/╢с ж╦╤╗нд╪Чё╗JSONё╘
+    // О©╫О©╫О©╫О©╫/О©╫О©╫х║ GameModel + UndoModel О©╫О©╫/О©╫О©╫ ж╦О©╫О©╫О©╫д╪О©╫О©╫О©╫JSONО©╫О©╫
     bool saveGameToFile(const std::string& filepath, const GameModel& gameModel, const class UndoModel& undoModel) const;
     bool loadGameFromFile(const std::string& filepath, GameModel& outGameModel, UndoModel& outUndoModel) const;
 
 private:
-    SaveManager() = default;
     std::string _pendingPath;
     std::string _activePath;
 
-    // хГ╧Ш╥г©уё╛╦╡╦гд╛хо╣д saves д©б╪ё╗╠ьпКйг╬Ь╤тб╥╬╤ё╘
+    // О©╫О©╫О©╫О©╫О©╫г©уёО©╫О©╫О©╫О©╫О©╫д╛О©╫о╣О©╫ saves д©б╪О©╫О©╫О©╫О©╫О©╫О©╫О©╫г╬О©╫О©╫О©╫б╥О©╫О©╫О©╫О©╫
     std::string _savesDirOverride;
 };
 

@@ -6,16 +6,16 @@
 #include "views/CardView.h"
 #include "configs/LevelConfig.h"
 #include "views/UndoView.h"
+#include "managers/SaveManager.h"
 #include <unordered_map>
 #include <memory>
 #include <string>
 
-class SaveManager;
-
 class GameController
 {
 public:
-    explicit GameController(cocos2d::Node* parentNode);
+    // 可选注入外部 SaveManager；若传空则内部创建自有实例
+    explicit GameController(cocos2d::Node* parentNode, SaveManager* saveManager = nullptr);
     ~GameController();
 
     // Start a specific level; optional savePath to load from
@@ -66,4 +66,8 @@ private:
     cocos2d::Vec2 _defaultHandPosition = cocos2d::Vec2(540.0f, 200.0f);
 
     UndoView* _undoView = nullptr;
+
+    // SaveManager 持有方式：优先使用外部注入，否则内部自有
+    SaveManager* _saveManager = nullptr;
+    std::unique_ptr<SaveManager> _ownedSaveManager;
 };

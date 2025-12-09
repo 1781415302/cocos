@@ -1,4 +1,4 @@
-#include "SaveManager.h"
+ï»¿#include "SaveManager.h"
 #include "cocos2d.h"
 #include "models/GameModel.h"
 #include "models/UndoModel.h"
@@ -25,12 +25,6 @@
 
 using namespace cocos2d;
 using json = nlohmann::json;
-
-SaveManager& SaveManager::getInstance()
-{
-    static SaveManager inst;
-    return inst;
-}
 
 static std::string ensureTrailingSlash(const std::string& p) {
     if (p.empty()) return p;
@@ -75,7 +69,7 @@ static std::string getExecutableDirectory()
         }
     }
 #else
-    // ÆäËûÆ½Ì¨£º»ØÍËµ½µ±Ç°¹¤×÷Ä¿Â¼
+    // ï¿½ï¿½ï¿½ï¿½Æ½Ì¨ï¿½ï¿½ï¿½ï¿½ï¿½Ëµï¿½ï¿½ï¿½Ç°ï¿½ï¿½ï¿½ï¿½Ä¿Â¼
     char cwd[PATH_MAX];
     if (getcwd(cwd, sizeof(cwd))) {
         exePath = cwd;
@@ -83,15 +77,13 @@ static std::string getExecutableDirectory()
 #endif
 
     if (exePath.empty()) {
-        // ×÷Îª×îºóµÄ»ØÍËÊ¹ÓÃ writablePath£¨Í¨³£×ÜÊÇ¿ÉĞ´£©
+        // ï¿½ï¿½Îªï¿½ï¿½ï¿½ï¿½ï¿½Ä»ï¿½ï¿½ï¿½Ê¹ï¿½ï¿½ writablePathï¿½ï¿½Í¨ï¿½ï¿½ï¿½ï¿½ï¿½Ç¿ï¿½Ğ´ï¿½ï¿½
         exePath = FileUtils::getInstance()->getWritablePath();
-        // remove trailing slash if present, will be normalized below
         if (!exePath.empty() && (exePath.back() == '/' || exePath.back() == '\\')) {
             exePath.pop_back();
         }
     }
 
-    // ³éÈ¡Ä¿Â¼²¿·Ö
     size_t pos = exePath.find_last_of("/\\");
     if (pos != std::string::npos) {
         return exePath.substr(0, pos);
@@ -119,17 +111,13 @@ void SaveManager::ensureSavesDirectoryExists()
 {
     std::string dir = getSavesDirectory();
 
-    // ³¢ÊÔ´´½¨Ä¿±êÄ¿Â¼
     FileUtils::getInstance()->createDirectory(dir);
 
-    // Èç¹û´´½¨ºóÈÔÈ»²»´æÔÚ£¬ÔòËµÃ÷Ä¿±êÄ¿Â¼¿ÉÄÜÖ»¶Á£¨³£¼ûÓÚÒÆ¶¯Æ½Ì¨µÄ¿ÉÖ´ĞĞÄ¿Â¼£©¡£
     if (!FileUtils::getInstance()->isDirectoryExist(dir)) {
-        // »ØÍËµ½ writablePath + "saves/"
         std::string fallback = FileUtils::getInstance()->getWritablePath();
         fallback = ensureTrailingSlash(fallback) + "saves/";
         FileUtils::getInstance()->createDirectory(fallback);
 
-        // ¼ÇÂ¼²¢Ê¹ÓÃ»ØÍËÄ¿Â¼£¨ÉèÖÃ override ÈÃºóĞøµ÷ÓÃÊ¹ÓÃ»ØÍË£©
         _savesDirOverride = fallback;
         CCLOG("SaveManager: executable-dir 'saves' not writable, falling back to: %s", _savesDirOverride.c_str());
     }
@@ -149,7 +137,6 @@ std::vector<std::string> SaveManager::listSaveFiles() const
     }
 
     for (const auto& f : files) {
-        // ¹ıÂËºÏÀíÀ©Õ¹Ãû
         if (f.size() > 5) {
             if (f.find(".json") != std::string::npos || f.find(".save") != std::string::npos) {
                 out.push_back(f);
@@ -198,20 +185,15 @@ static std::string timestampFilename(const std::string& levelId)
 
 std::string SaveManager::createNewSaveFileForLevel(const std::string& levelId) const
 {
-    // ÕâÀï¼ÙÉè ensureSavesDirectoryExists ÒÑÔÚµ÷ÓÃµã±»µ÷ÓÃ£»
-    // Èç¹ûÃ»ÓĞ£¬ÇëÔÚµ÷ÓÃÇ°ÏÔÊ½µ÷ÓÃ ensureSavesDirectoryExists()
     std::string filename = timestampFilename(levelId);
     std::string full = getSavesDirectory() + filename;
 
-    // create an empty JSON file to reserve the name (atomic create)
     json j;
     j["version"] = 1;
     j["levelId"] = levelId;
-    // write initial empty structure
     std::string tmp = full + ".tmp";
     auto s = j.dump(2);
     FileUtils::getInstance()->writeStringToFile(s, tmp);
-    // rename tmp -> full
     remove(full.c_str());
     rename(tmp.c_str(), full.c_str());
 
@@ -220,7 +202,6 @@ std::string SaveManager::createNewSaveFileForLevel(const std::string& levelId) c
 
 bool SaveManager::saveGameToFile(const std::string& filepath, const GameModel& gameModel, const UndoModel& undoModel) const
 {
-    // Build JSON via GameModel / UndoModel -> json
     try {
         json j = gameModel.toJson();
         j["undo"] = undoModel.toJson();
@@ -228,14 +209,11 @@ bool SaveManager::saveGameToFile(const std::string& filepath, const GameModel& g
         std::string tmp = filepath + ".tmp";
         std::string content = j.dump(2);
 
-        // write tmp
         bool ok = FileUtils::getInstance()->writeStringToFile(content, tmp);
         if (!ok) return false;
 
-        // atomically replace
         remove(filepath.c_str());
         if (rename(tmp.c_str(), filepath.c_str()) != 0) {
-            // fallback: try to copy
             FileUtils::getInstance()->writeStringToFile(content, filepath);
         }
         return true;

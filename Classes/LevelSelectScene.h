@@ -4,6 +4,9 @@
 #define LEVEL_SELECT_SCENE_H
 
 #include "cocos2d.h"
+#include <memory>
+
+class SaveManager;
 
 class LevelSelectScene : public cocos2d::Scene
 {
@@ -18,8 +21,11 @@ private:
     void createLevelButtons();
     void runSelectAnimationAndEnter(const std::string& levelId, cocos2d::Node* targetButton);
 
-    // 新增：打开游戏内存档浏览器（草稿）
+    // 浏览存档（载入存档路径）
     void showSaveBrowser();
+
+private:
+    std::shared_ptr<SaveManager> _saveManager;
 };
 
 #endif // LEVEL_SELECT_SCENE_H
