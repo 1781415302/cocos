@@ -1,45 +1,9 @@
 {
   "hand": [
     {
-      "face": 5,
+      "face": 3,
       "faceUp": true,
-      "id": 14,
-      "pos": {
-        "x": 540.0,
-        "y": 200.0
-      },
-      "status": 1,
-      "suit": 1,
-      "visible": true
-    },
-    {
-      "face": 6,
-      "faceUp": true,
-      "id": 6,
-      "pos": {
-        "x": 540.0,
-        "y": 200.0
-      },
-      "status": 1,
-      "suit": 1,
-      "visible": true
-    },
-    {
-      "face": 5,
-      "faceUp": true,
-      "id": 5,
-      "pos": {
-        "x": 540.0,
-        "y": 200.0
-      },
-      "status": 1,
-      "suit": 3,
-      "visible": true
-    },
-    {
-      "face": 4,
-      "faceUp": true,
-      "id": 4,
+      "id": 9,
       "pos": {
         "x": 540.0,
         "y": 200.0
@@ -49,21 +13,9 @@
       "visible": true
     },
     {
-      "face": 3,
+      "face": 4,
       "faceUp": true,
       "id": 3,
-      "pos": {
-        "x": 540.0,
-        "y": 200.0
-      },
-      "status": 1,
-      "suit": 2,
-      "visible": true
-    },
-    {
-      "face": 2,
-      "faceUp": true,
-      "id": 2,
       "pos": {
         "x": 540.0,
         "y": 200.0
@@ -73,7 +25,19 @@
       "visible": true
     },
     {
-      "face": 1,
+      "face": 3,
+      "faceUp": true,
+      "id": 2,
+      "pos": {
+        "x": 540.0,
+        "y": 200.0
+      },
+      "status": 1,
+      "suit": 0,
+      "visible": true
+    },
+    {
+      "face": 2,
       "faceUp": true,
       "id": 1,
       "pos": {
@@ -85,143 +49,79 @@
       "visible": true
     },
     {
-      "face": 12,
+      "face": 6,
       "faceUp": true,
-      "id": 13,
-      "pos": {
-        "x": 540.0,
-        "y": 200.0
-      },
-      "status": 1,
-      "suit": 0,
-      "visible": true
-    },
-    {
-      "face": 11,
-      "faceUp": true,
-      "id": 12,
-      "pos": {
-        "x": 540.0,
-        "y": 200.0
-      },
-      "status": 1,
-      "suit": 3,
-      "visible": true
-    }
-  ],
-  "nextCardId": 15,
-  "playfield": [
-    {
-      "face": 7,
-      "faceUp": false,
-      "id": 7,
-      "pos": {
-        "x": 800.0,
-        "y": 1400.0
-      },
-      "status": 0,
-      "suit": 2,
-      "visible": true
-    },
-    {
-      "face": 8,
-      "faceUp": false,
       "id": 8,
       "pos": {
-        "x": 820.0,
-        "y": 1200.0
+        "x": 540.0,
+        "y": 200.0
       },
-      "status": 0,
+      "status": 1,
       "suit": 0,
       "visible": true
     },
     {
-      "face": 9,
+      "face": 7,
       "faceUp": true,
-      "id": 9,
+      "id": 6,
       "pos": {
-        "x": 840.0,
-        "y": 1000.0
+        "x": 540.0,
+        "y": 200.0
       },
       "status": 1,
       "suit": 3,
       "visible": true
+    },
+    {
+      "face": 6,
+      "faceUp": true,
+      "id": 5,
+      "pos": {
+        "x": 540.0,
+        "y": 200.0
+      },
+      "status": 1,
+      "suit": 0,
+      "visible": true
+    },
+    {
+      "face": 5,
+      "faceUp": true,
+      "id": 4,
+      "pos": {
+        "x": 540.0,
+        "y": 200.0
+      },
+      "status": 1,
+      "suit": 0,
+      "visible": true
     }
   ],
+  "nextCardId": 10,
+  "playfield": [],
   "reserve": [
     {
       "face": 0,
       "faceUp": false,
-      "id": 10,
+      "id": 7,
       "pos": {
         "x": 0.0,
         "y": 0.0
       },
       "status": 0,
-      "suit": 1,
-      "visible": true
-    },
-    {
-      "face": 10,
-      "faceUp": false,
-      "id": 11,
-      "pos": {
-        "x": 0.0,
-        "y": 0.0
-      },
-      "status": 0,
-      "suit": 2,
+      "suit": 0,
       "visible": true
     }
   ],
   "undo": [
-    {
-      "cardId": 6,
-      "faceUpAfter": true,
-      "playfieldIndex": 5,
-      "prevFaceUp": true,
-      "prevPosition": {
-        "x": 540.0,
-        "y": 900.0
-      },
-      "prevStatus": 1,
-      "prevVisible": true,
-      "type": 1
-    },
-    {
-      "cardId": 5,
-      "faceUpAfter": true,
-      "playfieldIndex": 4,
-      "prevFaceUp": true,
-      "prevPosition": {
-        "x": 520.0,
-        "y": 1100.0
-      },
-      "prevStatus": 1,
-      "prevVisible": true,
-      "type": 1
-    },
-    {
-      "cardId": 4,
-      "faceUpAfter": true,
-      "playfieldIndex": 3,
-      "prevFaceUp": true,
-      "prevPosition": {
-        "x": 500.0,
-        "y": 1300.0
-      },
-      "prevStatus": 1,
-      "prevVisible": true,
-      "type": 1
-    },
     {
       "cardId": 3,
       "faceUpAfter": true,
       "playfieldIndex": 2,
       "prevFaceUp": true,
       "prevPosition": {
-        "x": 240.0,
-        "y": 800.0
+        "x": 350.0,
+        "y": 600.0
       },
       "prevStatus": 1,
       "prevVisible": true,
@@ -233,8 +133,8 @@
       "playfieldIndex": 1,
       "prevFaceUp": true,
       "prevPosition": {
-        "x": 220.0,
-        "y": 1000.0
+        "x": 300.0,
+        "y": 800.0
       },
       "prevStatus": 1,
       "prevVisible": true,
@@ -246,15 +146,15 @@
       "playfieldIndex": 0,
       "prevFaceUp": true,
       "prevPosition": {
-        "x": 200.0,
-        "y": 1200.0
+        "x": 250.0,
+        "y": 1000.0
       },
       "prevStatus": 1,
       "prevVisible": true,
       "type": 1
     },
     {
-      "cardId": 13,
+      "cardId": 8,
       "faceUpAfter": true,
       "playfieldIndex": -1,
       "prevFaceUp": false,
@@ -267,17 +167,43 @@
       "type": 0
     },
     {
-      "cardId": 12,
+      "cardId": 6,
       "faceUpAfter": true,
-      "playfieldIndex": -1,
-      "prevFaceUp": false,
+      "playfieldIndex": 2,
+      "prevFaceUp": true,
       "prevPosition": {
-        "x": 0.0,
-        "y": 0.0
+        "x": 750.0,
+        "y": 600.0
       },
-      "prevStatus": 0,
+      "prevStatus": 1,
       "prevVisible": true,
-      "type": 0
+      "type": 1
+    },
+    {
+      "cardId": 5,
+      "faceUpAfter": true,
+      "playfieldIndex": 1,
+      "prevFaceUp": true,
+      "prevPosition": {
+        "x": 800.0,
+        "y": 800.0
+      },
+      "prevStatus": 1,
+      "prevVisible": true,
+      "type": 1
+    },
+    {
+      "cardId": 4,
+      "faceUpAfter": true,
+      "playfieldIndex": 0,
+      "prevFaceUp": true,
+      "prevPosition": {
+        "x": 850.0,
+        "y": 1000.0
+      },
+      "prevStatus": 1,
+      "prevVisible": true,
+      "type": 1
     }
   ],
   "version": 1

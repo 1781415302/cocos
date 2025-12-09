@@ -11,7 +11,15 @@
 #include <memory>
 #include <string>
 
-class GameController
+/**
+ * GameController
+ * - 协调 model 与 view
+ * - 处理用户操作的业务逻辑
+ * - 持有 managers（如 SaveManager）作为成员或通过注入使用
+ *
+ * 说明：保持对外 API 向后兼容（构造函数参数不变）。
+ */
+    class GameController
 {
 public:
     // 可选注入外部 SaveManager；若传空则内部创建自有实例
@@ -34,8 +42,20 @@ public:
     void saveToActive() const;
 
 private:
-    // ... existing private methods unchanged ...
+    // view creation helpers
     void createViewsFromModel();
+    void createPlayfieldViews();
+    void createReserveViews();
+    void createHandViews();
+
+    // single-card view creation helpers (reduce duplication)
+    CardView* createCardViewForPlayfield(const std::shared_ptr<CardModel>& cardPtr);
+    CardView* createCardViewForReserve(const std::shared_ptr<CardModel>& cardPtr);
+    CardView* createCardViewForHand(const std::shared_ptr<CardModel>& cardPtr);
+
+    // small helpers
+    void ensureUndoView();
+    void saveActiveIfSet() const;
 
     int findPlayfieldIndexByCardId(int cardId) const;
     int findReserveIndexByCardId(int cardId) const;
@@ -57,6 +77,7 @@ private:
     GameModel _gameModel;
     UndoModel _undoModel;
 
+    // map cardId -> CardView* (cocos 的节点由 engine 管理)
     std::unordered_map<int, CardView*> _cardViews;
 
     bool _busy = false;

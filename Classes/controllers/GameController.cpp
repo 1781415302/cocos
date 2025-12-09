@@ -1,4 +1,3 @@
-#pragma once
 #include "GameController.h"
 #include "configs/Loaders/LevelConfigLoader.h"
 #include "services/GameModelFromLevelGenerator.h"
@@ -18,7 +17,7 @@ GameController::GameController(Node* parentNode, SaveManager* saveManager)
 {
     assert(parentNode && "GameController requires a valid parent node");
 
-    // SaveManager 注入/自有
+    // SaveManager 注入/拥有逻辑保持不变
     if (saveManager) {
         _saveManager = saveManager;
     }
@@ -44,6 +43,7 @@ GameController::GameController(Node* parentNode, SaveManager* saveManager)
 GameController::~GameController()
 {
     reset();
+
     _playfieldNode = nullptr;
     _reserveNode = nullptr;
     _handNode = nullptr;
@@ -64,14 +64,7 @@ void GameController::startGame(const std::string& levelId, const std::string& op
         if (ok) {
             _saveManager->setActiveSavePath(optionalSavePath);
             createViewsFromModel();
-            if (!_undoView) {
-                _undoView = UndoView::create("undo.png");
-                if (_undoView) {
-                    _undoView->setName("undo_view");
-                    _undoView->setClickCallback([this]() { this->handleUndo(); });
-                    _parentNode->addChild(_undoView, 20);
-                }
-            }
+            ensureUndoView();
             repositionUndoToRightOfHand();
             return;
         }
@@ -87,68 +80,88 @@ void GameController::startGame(const std::string& levelId, const std::string& op
     _saveManager->setActiveSavePath(newSave);
     _saveManager->saveGameToFile(newSave, _gameModel, _undoModel);
 
-    if (!_undoView) {
-        _undoView = UndoView::create("undo.png");
-        if (_undoView) {
-            _undoView->setName("undo_view");
-            _undoView->setClickCallback([this]() { this->handleUndo(); });
-            _parentNode->addChild(_undoView, 20);
-        }
-    }
+    ensureUndoView();
     repositionUndoToRightOfHand();
 }
 
 void GameController::createViewsFromModel()
 {
+    createPlayfieldViews();
+    updatePlayfieldCoverage(/*overlapAreaThreshold=*/0.0f);
+    createReserveViews();
+    createHandViews();
+}
+
+void GameController::createPlayfieldViews()
+{
     const auto& playfield = _gameModel.getPlayfieldCards();
     for (size_t i = 0; i < playfield.size(); ++i) {
         auto cardPtr = playfield[i];
         if (!cardPtr) continue;
-        CardView* v = CardView::create(cardPtr);
+        CardView* v = createCardViewForPlayfield(cardPtr);
         if (!v) continue;
         _playfieldNode->addChild(v);
         _cardViews[cardPtr->getId()] = v;
-
-        v->setClickCallback([this](int cardId) {
-            this->handlePlayfieldCardClick(cardId);
-            });
-
         v->setFaceUp(cardPtr->isFaceUp(), false);
     }
+}
 
-    updatePlayfieldCoverage(/*overlapAreaThreshold=*/0.0f);
-
+void GameController::createReserveViews()
+{
     const auto& reserve = _gameModel.getReserveCards();
     for (size_t i = 0; i < reserve.size(); ++i) {
         auto cardPtr = reserve[i];
         if (!cardPtr) continue;
-        CardView* v = CardView::create(cardPtr);
+        CardView* v = createCardViewForReserve(cardPtr);
         if (!v) continue;
-
         _reserveNode->addChild(v);
         _cardViews[cardPtr->getId()] = v;
-
-        v->setClickCallback([this](int /*cardId*/) {
-            this->handleReserveClick();
-            });
-
         v->setCardVisible(cardPtr->isFaceUp());
     }
+}
 
+void GameController::createHandViews()
+{
     const auto& hand = _gameModel.getHandCards();
     for (size_t i = 0; i < hand.size(); ++i) {
         auto cardPtr = hand[i];
         if (!cardPtr) continue;
-        CardView* v = CardView::create(cardPtr);
+        CardView* v = createCardViewForHand(cardPtr);
         if (!v) continue;
         _handNode->addChild(v);
         _cardViews[cardPtr->getId()] = v;
-
-        v->setClickCallback([this](int /*cardId*/) {
-            });
-
         v->setCardVisible(cardPtr->isFaceUp());
     }
+}
+
+CardView* GameController::createCardViewForPlayfield(const std::shared_ptr<CardModel>& cardPtr)
+{
+    CardView* v = CardView::create(cardPtr);
+    if (!v) return nullptr;
+    // bind click to controller handler
+    v->setClickCallback([this](int cardId) {
+        this->handlePlayfieldCardClick(cardId);
+        });
+    return v;
+}
+
+CardView* GameController::createCardViewForReserve(const std::shared_ptr<CardModel>& cardPtr)
+{
+    CardView* v = CardView::create(cardPtr);
+    if (!v) return nullptr;
+    v->setClickCallback([this](int /*cardId*/) {
+        this->handleReserveClick();
+        });
+    return v;
+}
+
+CardView* GameController::createCardViewForHand(const std::shared_ptr<CardModel>& cardPtr)
+{
+    CardView* v = CardView::create(cardPtr);
+    if (!v) return nullptr;
+    // hand cards generally not clickable for gameplay in your design
+    v->setClickCallback([](int /*cardId*/) {});
+    return v;
 }
 
 void GameController::updatePlayfieldCoverage(float overlapAreaThreshold)
@@ -262,6 +275,8 @@ void GameController::drawInitialReserveTopToHand(bool animate)
     }
 
     updatePlayfieldCoverage(/*overlapAreaThreshold=*/0.0f);
+
+    saveActiveIfSet();
 }
 
 int GameController::findPlayfieldIndexByCardId(int cardId) const
@@ -398,13 +413,7 @@ void GameController::animatePlayfieldCardToHand(int playfieldIndex, int cardId)
 
         updatePlayfieldCoverage(/*overlapAreaThreshold=*/0.0f);
 
-        std::string active = _saveManager->getActiveSavePath();
-        if (!active.empty()) {
-            bool saved = _saveManager->saveGameToFile(active, _gameModel, _undoModel);
-            if (!saved) {
-                CCLOG("GameController::animatePlayfieldCardToHand - failed to save to %s", active.c_str());
-            }
-        }
+        saveActiveIfSet();
 
         _busy = false;
         });
@@ -502,13 +511,7 @@ void GameController::animateReserveTopToHand()
 
         _undoModel.push(undoAction);
 
-        std::string active = _saveManager->getActiveSavePath();
-        if (!active.empty()) {
-            bool saved = _saveManager->saveGameToFile(active, _gameModel, _undoModel);
-            if (!saved) {
-                CCLOG("GameController::animateReserveTopToHand - failed to save to %s", active.c_str());
-            }
-        }
+        saveActiveIfSet();
 
         _busy = false;
         });
@@ -574,13 +577,7 @@ void GameController::handleUndo()
                     }
                 }
 
-                std::string active = _saveManager->getActiveSavePath();
-                if (!active.empty()) {
-                    bool saved = _saveManager->saveGameToFile(active, _gameModel, _undoModel);
-                    if (!saved) {
-                        CCLOG("GameController::handleUndo(DrawReserveToHand) - failed to save to %s", active.c_str());
-                    }
-                }
+                saveActiveIfSet();
 
                 _busy = false;
                 });
@@ -589,6 +586,7 @@ void GameController::handleUndo()
         else {
             ok = UndoService::applyAction(_gameModel, action);
             if (ok) {
+                int cardId = action.cardId;
                 auto itv2 = _cardViews.find(cardId);
                 if (itv2 != _cardViews.end()) {
                     CardView* vv = itv2->second;
@@ -603,13 +601,7 @@ void GameController::handleUndo()
                         vv->setVisible(action.prevVisible);
                     }
                 }
-                std::string active = _saveManager->getActiveSavePath();
-                if (!active.empty()) {
-                    bool saved = _saveManager->saveGameToFile(active, _gameModel, _undoModel);
-                    if (!saved) {
-                        CCLOG("GameController::handleUndo(DrawReserveToHand) - failed to save to %s", active.c_str());
-                    }
-                }
+                saveActiveIfSet();
             }
         }
         break;
@@ -651,13 +643,7 @@ void GameController::handleUndo()
                 }
                 updatePlayfieldCoverage(/*overlapAreaThreshold=*/0.0f);
 
-                std::string active = _saveManager->getActiveSavePath();
-                if (!active.empty()) {
-                    bool saved = _saveManager->saveGameToFile(active, _gameModel, _undoModel);
-                    if (!saved) {
-                        CCLOG("GameController::handleUndo(MovePlayfieldToHand) - failed to save to %s", active.c_str());
-                    }
-                }
+                saveActiveIfSet();
 
                 _busy = false;
                 });
@@ -666,7 +652,7 @@ void GameController::handleUndo()
         else {
             ok = UndoService::applyAction(_gameModel, action);
             if (ok) {
-                auto itv2 = _cardViews.find(cardId);
+                auto itv2 = _cardViews.find(action.cardId);
                 if (itv2 != _cardViews.end()) {
                     CardView* vv = itv2->second;
                     if (vv) {
@@ -682,14 +668,7 @@ void GameController::handleUndo()
                     }
                 }
                 updatePlayfieldCoverage(/*overlapAreaThreshold=*/0.0f);
-
-                std::string active = _saveManager->getActiveSavePath();
-                if (!active.empty()) {
-                    bool saved = _saveManager->saveGameToFile(active, _gameModel, _undoModel);
-                    if (!saved) {
-                        CCLOG("GameController::handleUndo(MovePlayfieldToHand) - failed to save to %s", active.c_str());
-                    }
-                }
+                saveActiveIfSet();
             }
         }
         break;
@@ -732,19 +711,12 @@ void GameController::handleUndo()
                             vv->setPosition(localPos);
                             vv->setFaceUp(action.prevFaceUp, false);
                             vv->setVisible(action.prevVisible);
-                            vv->setClickCallback([](int /*cardId*/) {});
                         }
                     }
                 }
                 updatePlayfieldCoverage(/*overlapAreaThreshold=*/0.0f);
 
-                std::string active = _saveManager->getActiveSavePath();
-                if (!active.empty()) {
-                    bool saved = _saveManager->saveGameToFile(active, _gameModel, _undoModel);
-                    if (!saved) {
-                        CCLOG("GameController::handleUndo(MoveHandToPlayfield) - failed to save to %s", active.c_str());
-                    }
-                }
+                saveActiveIfSet();
 
                 _busy = false;
                 });
@@ -779,13 +751,7 @@ void GameController::handleUndo()
                 }
                 updatePlayfieldCoverage(/*overlapAreaThreshold=*/0.0f);
 
-                std::string active = _saveManager->getActiveSavePath();
-                if (!active.empty()) {
-                    bool saved = _saveManager->saveGameToFile(active, _gameModel, _undoModel);
-                    if (!saved) {
-                        CCLOG("GameController::handleUndo(MoveHandToPlayfield) - failed to save to %s", active.c_str());
-                    }
-                }
+                saveActiveIfSet();
             }
         }
         break;
@@ -835,13 +801,7 @@ void GameController::handleUndo()
                     }
                 }
 
-                std::string active = _saveManager->getActiveSavePath();
-                if (!active.empty()) {
-                    bool saved = _saveManager->saveGameToFile(active, _gameModel, _undoModel);
-                    if (!saved) {
-                        CCLOG("GameController::handleUndo(MoveHandToReserve) - failed to save to %s", active.c_str());
-                    }
-                }
+                saveActiveIfSet();
 
                 _busy = false;
                 });
@@ -875,13 +835,7 @@ void GameController::handleUndo()
                     }
                 }
 
-                std::string active = _saveManager->getActiveSavePath();
-                if (!active.empty()) {
-                    bool saved = _saveManager->saveGameToFile(active, _gameModel, _undoModel);
-                    if (!saved) {
-                        CCLOG("GameController::handleUndo(MoveHandToReserve) - failed to save to %s", active.c_str());
-                    }
-                }
+                saveActiveIfSet();
             }
         }
         break;
@@ -902,13 +856,7 @@ void GameController::handleUndo()
         }
         ok = true;
 
-        std::string active = _saveManager->getActiveSavePath();
-        if (!active.empty()) {
-            bool saved = _saveManager->saveGameToFile(active, _gameModel, _undoModel);
-            if (!saved) {
-                CCLOG("GameController::handleUndo(FlipHandTopFaceUp) - failed to save to %s", active.c_str());
-            }
-        }
+        saveActiveIfSet();
         break;
     }
     default:
@@ -991,4 +939,32 @@ bool GameController::loadFromSave(const std::string& savePath)
     _gameModel = std::move(gm);
     _undoModel = std::move(um);
     return true;
+}
+
+void GameController::ensureUndoView()
+{
+    if (!_undoView) {
+        _undoView = UndoView::create("undo.png");
+        if (_undoView) {
+            _undoView->setName("undo_view");
+            _undoView->setClickCallback([this]() { this->handleUndo(); });
+            _parentNode->addChild(_undoView, 20);
+        }
+    }
+}
+
+void GameController::saveActiveIfSet() const
+{
+    if (!_saveManager) return;
+    std::string active = _saveManager->getActiveSavePath();
+    if (active.empty()) return;
+    bool saved = _saveManager->saveGameToFile(active, _gameModel, _undoModel);
+    if (!saved) {
+        CCLOG("GameController::saveActiveIfSet - failed to save to %s", active.c_str());
+    }
+}
+
+void GameController::saveToActive() const
+{
+    saveActiveIfSet();
 }
