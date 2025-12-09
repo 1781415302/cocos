@@ -23,7 +23,8 @@ bool LevelSelectScene::init()
     auto origin = Director::getInstance()->getVisibleOrigin();
     auto loadBtn = ui::Button::create();
     loadBtn->setTitleText(u8"读取存档");
-    loadBtn->setTitleFontSize(28);
+    loadBtn->setTitleFontName("fonts/FLjiangdouti-Regular-2.ttf");
+    loadBtn->setTitleFontSize(35);
     loadBtn->setAnchorPoint(Vec2(0.0f, 1.0f));
     loadBtn->setPosition(origin + Vec2(10.0f, visibleSize.height - 10.0f));
     loadBtn->addClickEventListener([this](Ref*) {
@@ -124,7 +125,7 @@ void LevelSelectScene::showSaveBrowser()
     // 中央面板：使用半透明深色背景以减少视觉干扰
     auto panel = LayerColor::create(Color4B(36, 36, 36, 230), 720, 600);
     panel->setAnchorPoint(Vec2(0.5f, 0.5f));
-    panel->setPosition(origin + visibleSize * 0.5f);
+    panel->setPosition(origin + visibleSize * 0.25f);
     panel->setName("save_browser_panel");
     overlay->addChild(panel);
 

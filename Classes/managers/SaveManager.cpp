@@ -7,6 +7,22 @@
 #include <sstream>
 #include <utils/json.hpp>
 
+#if (CC_TARGET_PLATFORM == CC_PLATFORM_WIN32)
+#include <windows.h>
+#elif (CC_TARGET_PLATFORM == CC_PLATFORM_MAC)
+#include <mach-o/dyld.h>
+#include <limits.h>
+#include <stdlib.h>
+#elif (CC_TARGET_PLATFORM == CC_PLATFORM_LINUX)
+#include <unistd.h>
+#include <limits.h>
+#include <stdlib.h>
+#else
+#include <unistd.h>
+#include <limits.h>
+#include <stdlib.h>
+#endif
+
 using namespace cocos2d;
 using json = nlohmann::json;
 
@@ -16,16 +32,107 @@ SaveManager& SaveManager::getInstance()
     return inst;
 }
 
+static std::string ensureTrailingSlash(const std::string& p) {
+    if (p.empty()) return p;
+    char last = p.back();
+    if (last == '/' || last == '\\') return p;
+    return p + "/";
+}
+
+static std::string getExecutableDirectory()
+{
+    std::string exePath;
+
+#if (CC_TARGET_PLATFORM == CC_PLATFORM_WIN32)
+    char buf[MAX_PATH] = { 0 };
+    DWORD len = GetModuleFileNameA(NULL, buf, MAX_PATH);
+    if (len > 0 && len < MAX_PATH) {
+        exePath.assign(buf, len);
+    }
+#elif (CC_TARGET_PLATFORM == CC_PLATFORM_MAC)
+    char pathBuf[PATH_MAX];
+    uint32_t size = PATH_MAX;
+    if (_NSGetExecutablePath(pathBuf, &size) == 0) {
+        char realBuf[PATH_MAX];
+        if (realpath(pathBuf, realBuf)) {
+            exePath = realBuf;
+        }
+        else {
+            exePath = pathBuf;
+        }
+    }
+#elif (CC_TARGET_PLATFORM == CC_PLATFORM_LINUX)
+    char pathBuf[PATH_MAX];
+    ssize_t len = readlink("/proc/self/exe", pathBuf, sizeof(pathBuf) - 1);
+    if (len != -1) {
+        pathBuf[len] = '\0';
+        char realBuf[PATH_MAX];
+        if (realpath(pathBuf, realBuf)) {
+            exePath = realBuf;
+        }
+        else {
+            exePath = pathBuf;
+        }
+    }
+#else
+    // 其他平台：回退到当前工作目录
+    char cwd[PATH_MAX];
+    if (getcwd(cwd, sizeof(cwd))) {
+        exePath = cwd;
+    }
+#endif
+
+    if (exePath.empty()) {
+        // 作为最后的回退使用 writablePath（通常总是可写）
+        exePath = FileUtils::getInstance()->getWritablePath();
+        // remove trailing slash if present, will be normalized below
+        if (!exePath.empty() && (exePath.back() == '/' || exePath.back() == '\\')) {
+            exePath.pop_back();
+        }
+    }
+
+    // 抽取目录部分
+    size_t pos = exePath.find_last_of("/\\");
+    if (pos != std::string::npos) {
+        return exePath.substr(0, pos);
+    }
+    return exePath;
+}
+
 std::string SaveManager::getSavesDirectory() const
 {
-    std::string dir = FileUtils::getInstance()->getWritablePath() + "saves";
+    if (!_savesDirOverride.empty()) {
+        return ensureTrailingSlash(_savesDirOverride);
+    }
+
+    std::string exeDir = getExecutableDirectory();
+    std::string dir = ensureTrailingSlash(exeDir) + "saves/";
     return dir;
 }
 
-void SaveManager::ensureSavesDirectoryExists() const
+void SaveManager::setSavesDirectory(const std::string& path)
+{
+    _savesDirOverride = path;
+}
+
+void SaveManager::ensureSavesDirectoryExists()
 {
     std::string dir = getSavesDirectory();
+
+    // 尝试创建目标目录
     FileUtils::getInstance()->createDirectory(dir);
+
+    // 如果创建后仍然不存在，则说明目标目录可能只读（常见于移动平台的可执行目录）。
+    if (!FileUtils::getInstance()->isDirectoryExist(dir)) {
+        // 回退到 writablePath + "saves/"
+        std::string fallback = FileUtils::getInstance()->getWritablePath();
+        fallback = ensureTrailingSlash(fallback) + "saves/";
+        FileUtils::getInstance()->createDirectory(fallback);
+
+        // 记录并使用回退目录（设置 override 让后续调用使用回退）
+        _savesDirOverride = fallback;
+        CCLOG("SaveManager: executable-dir 'saves' not writable, falling back to: %s", _savesDirOverride.c_str());
+    }
 }
 
 std::vector<std::string> SaveManager::listSaveFiles() const
@@ -42,7 +149,7 @@ std::vector<std::string> SaveManager::listSaveFiles() const
     }
 
     for (const auto& f : files) {
-        // filter for reasonable extensions
+        // 过滤合理扩展名
         if (f.size() > 5) {
             if (f.find(".json") != std::string::npos || f.find(".save") != std::string::npos) {
                 out.push_back(f);
@@ -91,9 +198,10 @@ static std::string timestampFilename(const std::string& levelId)
 
 std::string SaveManager::createNewSaveFileForLevel(const std::string& levelId) const
 {
-    ensureSavesDirectoryExists();
+    // 这里假设 ensureSavesDirectoryExists 已在调用点被调用；
+    // 如果没有，请在调用前显式调用 ensureSavesDirectoryExists()
     std::string filename = timestampFilename(levelId);
-    std::string full = getSavesDirectory() + "/" + filename;
+    std::string full = getSavesDirectory() + filename;
 
     // create an empty JSON file to reserve the name (atomic create)
     json j;

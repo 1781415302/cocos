@@ -13,34 +13,40 @@ class SaveManager
 public:
     static SaveManager& getInstance();
 
-    // 获取 saves 目录路径（writablePath + "saves/"）
+    // 获取 saves 目录：默认是可执行文件所在目录下的 "saves/"。
+    // 如果调用了 setSavesDirectory() 则返回被覆盖的路径（覆盖路径应为绝对路径，末尾可有或无斜杠）。
     std::string getSavesDirectory() const;
 
-    // 确保 saves 目录存在（若无则创建）
-    void ensureSavesDirectoryExists() const;
+    // 设置自定义存档目录（传入绝对路径）；传空字符串以恢复默认（可执行程序目录下的 saves）
+    void setSavesDirectory(const std::string& path);
 
-    // 列出 saves 目录下文件（返回完整路径列表）
+    // 确保 saves 目录存在，必要时创建；如果默认目录不可写，会回退到 writablePath + "saves/"
+    void ensureSavesDirectoryExists();
+
+    // 列出 saves 目录下的存档文件
     std::vector<std::string> listSaveFiles() const;
 
-    // 设置/获取 pending 加载路径（UI 打开文件后写入）
+    // pending / active path 管理（UI 使用）
     void setPendingLoadPath(const std::string& path);
     std::string getPendingLoadPath() const;
 
-    // Active save path (当前游戏会话正在使用的存档文件)
     void setActiveSavePath(const std::string& path);
     std::string getActiveSavePath() const;
 
-    // 创建新的存档（按时间命名），并返回新文件路径（不会写入初始内容）
+    // 创建新存档文件用于 levelId（会在目录中创建以时间戳命名的文件）
     std::string createNewSaveFileForLevel(const std::string& levelId) const;
 
-    // 保存/加载 GameModel + UndoModel 到/从指定文件（JSON）
+    // 保存/读取 GameModel + UndoModel 到/从 指定文件（JSON）
     bool saveGameToFile(const std::string& filepath, const GameModel& gameModel, const class UndoModel& undoModel) const;
-    bool loadGameFromFile(const std::string& filepath, GameModel& outGameModel, class UndoModel& outUndoModel) const;
+    bool loadGameFromFile(const std::string& filepath, GameModel& outGameModel, UndoModel& outUndoModel) const;
 
 private:
     SaveManager() = default;
     std::string _pendingPath;
     std::string _activePath;
+
+    // 如果非空，覆盖默认的 saves 目录（必须是绝对路径）
+    std::string _savesDirOverride;
 };
 
 #endif // SAVE_MANAGER_H
